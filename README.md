@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.webp">
-  <img alt="priority-boarding: Wait in line. Run one at a time." src=".github/banner-light.webp">
+  <img alt="priority-boarding: Everyone waits. The gate decides who's next." src=".github/banner-light.webp">
 </picture>
 
 [![Release](https://img.shields.io/github/v/release/udondan/priority-boarding)](https://github.com/udondan/priority-boarding/releases/latest)
