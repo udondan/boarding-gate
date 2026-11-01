@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.10.0](https://github.com/udondan/priority-boarding/compare/v1.9.0...v1.10.0) (2026-11-01)
+
+
+### Features
+
+* prioritize pull requests labelled urgent in the reusable workflow ([#38](https://github.com/udondan/priority-boarding/issues/38)) ([2b53668](https://github.com/udondan/priority-boarding/commit/2b53668b9ff7493d8ddf28d9ae3b59e33b0d916f))
+* rename the action to priority-boarding ([#40](https://github.com/udondan/priority-boarding/issues/40)) ([a4fcbf6](https://github.com/udondan/priority-boarding/commit/a4fcbf6954b947751137d78a4e27ac7b3b4689f6))
+
+
+### Bug Fixes
+
+* release the turn when the holder's pull request has a failed required check ([#33](https://github.com/udondan/priority-boarding/issues/33)) ([b8d9fce](https://github.com/udondan/priority-boarding/commit/b8d9fce972a70b70d5501d3249267caf4f2899ce))
+* set the error status when a waiting run is cancelled ([#32](https://github.com/udondan/priority-boarding/issues/32)) ([61ed5bb](https://github.com/udondan/priority-boarding/commit/61ed5bb9bc9ee7e840538ea7e66acf0c4954c543))
+
 ## [1.9.0](https://github.com/udondan/wait-for-turn/compare/v1.8.0...v1.9.0) (2026-10-31)
 
 
