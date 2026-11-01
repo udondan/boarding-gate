@@ -1,4 +1,4 @@
-# Checks the invariants of wait-for-turn on what a scenario recorded.
+# Checks the invariants of priority-boarding on what a scenario recorded.
 #
 # Inputs: $snaps (snapshots.jsonl as an array, see observe.sh), $final
 # (final.json, see collect.sh), $config (repository variables of the runs) and
@@ -41,7 +41,7 @@ $final[0] as $final
 
 # One entry per attempt of a run: its wait job and the "Use resource" step.
 | [$runs[] | . as $r | ($r.jobs | group_by(.run_attempt))[] | . as $js
-  | ($js | map(select(.name | startswith("wait-for-turn"))) | first) as $w
+  | ($js | map(select(.name | startswith("priority-boarding"))) | first) as $w
   | ($js | map(select(.name == "deploy")) | first) as $d
   | ($d.steps // [] | map(select(.name == "Use resource")) | first) as $u
   | select($w != null and $w.conclusion != "skipped")
@@ -50,7 +50,7 @@ $final[0] as $final
       start: ($js | map(.created_at | ts) | min),
       end: ($js | map(.completed_at | ts) | max),
       wait: {start: ($w.started_at | ts), end: ($w.completed_at | ts), conclusion: $w.conclusion, job: $w.id,
-        step: ($w.steps // [] | map(select(.name == "Wait for turn")) | first | .conclusion)},
+        step: ($w.steps // [] | map(select(.name == "Priority boarding")) | first | .conclusion)},
       deploy: (if $u != null and $u.started_at != null and $u.conclusion != "skipped"
         then {start: ($u.started_at | ts), end: ($u.completed_at | ts), conclusion: $u.conclusion} else null end)
     }] as $attempts
@@ -131,7 +131,7 @@ $final[0] as $final
       wait_conclusion: $last.wait.conclusion,
       wait_step: $last.wait.step,
       statuses: [$final.statuses[$r.head_sha][]? | select(.target_url | endswith("/runs/\($r.id)")) | {context, state, description, at: .created_at}],
-      annotations: [$r.jobs[] | select(.name | startswith("wait-for-turn")) | $final.annotations[.id | tostring][]?]
+      annotations: [$r.jobs[] | select(.name | startswith("priority-boarding")) | $final.annotations[.id | tostring][]?]
     }
   | select(.wait_conclusion != null)] as $report_runs
 

@@ -1,6 +1,6 @@
 ---
 # Runs the end-to-end scenarios of test/e2e against the test repository
-# udondan/wait-for-turn-e2e, by hand only. Takes about 1.5 hours. Needs the
+# udondan/priority-boarding-e2e, by hand only. Takes about 1.5 hours. Needs the
 # secret E2E_TOKEN: a fine-grained token for the test repository, see
 # test/e2e/README.md.
 name: End-to-end tests

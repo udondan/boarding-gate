@@ -1,4 +1,4 @@
-name: Wait for turn
+name: Priority boarding
 description: Queue workflow runs for shared resources, one at a time, by pull request labels, aware of auto-merge and outdated branches
 author: udondan
 branding:
@@ -84,7 +84,7 @@ inputs:
   status-context:
     description: >-
       Context of a commit status that shows the run's place in the queue while
-      it waits, for example "wait-for-turn". It is visible live in the pull
+      it waits, for example "priority-boarding". It is visible live in the pull
       request's checks, unlike the log. Pending while waiting, success when the
       run took the turn, failure when waiting failed. Needs statuses:write
       permission on token. Empty disables it.
@@ -93,14 +93,14 @@ inputs:
   token:
     description: >-
       Token with actions:read, contents:write and pull-requests:read permission.
-      contents:write is needed to create the lock refs under refs/wait-for-turn/.
+      contents:write is needed to create the lock refs under refs/priority-boarding/.
     required: false
     default: ${{ github.token }}
 
 runs:
   using: composite
   steps:
-    - name: Wait for turn
+    - name: Priority boarding
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}

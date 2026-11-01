@@ -29,7 +29,7 @@ holder_succeeded() {
   run_wait
   assert_status 0
   assert_locks 1
-  [ "$(lock_message 1)" = "wait-for-turn: run 100, pull request 1" ]
+  [ "$(lock_message 1)" = "priority-boarding: run 100, pull request 1" ]
   [ "$(head -n 1 "$FAKE_STATE/statuses.log")" = "pending|Waiting for the turn." ]
   assert_last_commit_status "success|Took the turn."
   [ "$(count_calls '^sleep')" -eq 0 ]
@@ -131,7 +131,7 @@ holder_succeeded() {
   run_wait
   assert_status 0
   assert_output_contains "Could not take the turn"
-  [ "$(count_calls '^DELETE git/refs/wait-for-turn/test.yml/1$')" -eq 1 ]
+  [ "$(count_calls '^DELETE git/refs/priority-boarding/test.yml/1$')" -eq 1 ]
   assert_locks 3
   assert_holds 3
 }
@@ -272,7 +272,7 @@ holder_succeeded() {
   add_run 100 "" 00:10
   run_wait
   assert_status 0
-  [ "$(lock_message 1)" = "wait-for-turn: run 100" ]
+  [ "$(lock_message 1)" = "priority-boarding: run 100" ]
 }
 
 @test "keeps the last known labels when listing the pull requests fails" {
@@ -712,7 +712,7 @@ EOF
   fail_api 403 '^POST statuses/'
   run_wait
   assert_status 0
-  assert_output_contains "::warning::Setting commit status wait-for-turn failed"
+  assert_output_contains "::warning::Setting commit status priority-boarding failed"
   [ "$(count_calls '^POST statuses/')" -eq 1 ]
   assert_holds 1
 }

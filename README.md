@@ -1,21 +1,21 @@
-# wait-for-turn
+# priority-boarding
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.webp">
-  <img alt="wait-for-turn: Wait in line. Run one at a time." src=".github/banner-light.webp">
+  <img alt="priority-boarding: Wait in line. Run one at a time." src=".github/banner-light.webp">
 </picture>
 
-[![Release](https://img.shields.io/github/v/release/udondan/wait-for-turn)](https://github.com/udondan/wait-for-turn/releases/latest)
-[![Marketplace](https://img.shields.io/badge/marketplace-wait--for--turn-blue?logo=github)](https://github.com/marketplace/actions/wait-for-turn)
-[![Test](https://github.com/udondan/wait-for-turn/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/udondan/wait-for-turn/actions/workflows/test.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/udondan/wait-for-turn/graph/badge.svg)](https://codecov.io/gh/udondan/wait-for-turn)
-[![License](https://img.shields.io/github/license/udondan/wait-for-turn)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/udondan/priority-boarding)](https://github.com/udondan/priority-boarding/releases/latest)
+[![Marketplace](https://img.shields.io/badge/marketplace-priority--boarding-blue?logo=github)](https://github.com/marketplace/actions/priority-boarding)
+[![Test](https://github.com/udondan/priority-boarding/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/udondan/priority-boarding/actions/workflows/test.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/udondan/priority-boarding/graph/badge.svg)](https://codecov.io/gh/udondan/priority-boarding)
+[![License](https://img.shields.io/github/license/udondan/priority-boarding)](LICENSE)
 
 GitHub Action that queues the runs of a workflow so only one run at a time uses shared resources (test stacks, environments), without cancelling pending runs the way a `concurrency` group does. Runs are ordered by the labels of their pull requests, so for example your own pull requests are tested before dependency updates, and release pull requests last. See [Alternatives](#alternatives) for when merge queue fits better.
 
 ## How it works
 
-The run that has the turn holds the lock ref `refs/wait-for-turn/<workflow>/<n>`. The turn is released when that run completes, including all jobs after the wait, or, if its pull request is about to be auto-merged, after the merge (see [Outdated branches](#outdated-branches)). A failed or cancelled run releases it as well, so cancelling the run holding the turn frees it, also in the middle of a job after the wait. The next run takes the turn by creating ref `<n+1>`. Creating a ref fails if it already exists, so only one run can take the turn. Old lock refs are deleted.
+The run that has the turn holds the lock ref `refs/priority-boarding/<workflow>/<n>`. The turn is released when that run completes, including all jobs after the wait, or, if its pull request is about to be auto-merged, after the merge (see [Outdated branches](#outdated-branches)). A failed or cancelled run releases it as well, so cancelling the run holding the turn frees it, also in the middle of a job after the wait. The next run takes the turn by creating ref `<n+1>`. Creating a ref fails if it already exists, so only one run can take the turn. Old lock refs are deleted.
 
 Waiting runs are ordered by weight (highest first), then by start time. A re-run of the run holding the turn keeps it. A re-run of any other run queues by its new start time. A run of a pull request that has a newer run is left out of the queue: its commit is outdated, and it can stay active for a while after it stopped waiting, for example while other jobs finish after it failed as outdated. A waiting run fails as soon as its pull request has a newer run of another commit, so it never tests the outdated commit. To stop it right away instead of at its next check, add a `concurrency` group (see [Workflow setup](#workflow-setup)).
 
@@ -55,7 +55,7 @@ flowchart TD
 
 ```yaml
 jobs:
-  wait-for-turn:
+  priority-boarding:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -66,7 +66,7 @@ jobs:
       group: ${{ github.workflow }}-wait-${{ github.head_ref || github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: udondan/wait-for-turn@v1
+      - uses: udondan/priority-boarding@v1
         with:
           require-up-to-date: true
           label-weights: |
@@ -74,12 +74,12 @@ jobs:
             renovate=-5
 
   deploy:
-    needs: wait-for-turn
+    needs: priority-boarding
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Check turn
-        if: needs.wait-for-turn.result != 'success'
+        if: needs.priority-boarding.result != 'success'
         run: exit 1
       # ...
 ```
@@ -92,22 +92,22 @@ The wait job can also be called as a [reusable workflow](https://docs.github.com
 
 ```yaml
 jobs:
-  wait-for-turn:
+  priority-boarding:
     permissions:
       actions: read
       contents: write
       pull-requests: read
       statuses: write
-    uses: udondan/wait-for-turn/.github/workflows/wait-for-turn.yml@v1
+    uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@v1
     secrets:
       update-token: ${{ secrets.UPDATE_TOKEN }}
 
   deploy:
-    needs: wait-for-turn
+    needs: priority-boarding
     # ...
 ```
 
-It runs the action with a `concurrency` group that cancels outdated waiting runs (see [Workflow setup](#workflow-setup)) and queues on the calling workflow. The action comes from the same commit as the workflow file, so `@v1` follows every release of both. The calling job can still have its own `needs` and `if`, but no `runs-on` or `steps`. Its permissions are the most the called job gets, so grant them there. `statuses: write` is only needed for `status-context`. In the checks of a pull request, the job is shown as `wait-for-turn / Wait for turn`.
+It runs the action with a `concurrency` group that cancels outdated waiting runs (see [Workflow setup](#workflow-setup)) and queues on the calling workflow. The action comes from the same commit as the workflow file, so `@v1` follows every release of both. The calling job can still have its own `needs` and `if`, but no `runs-on` or `steps`. Its permissions are the most the called job gets, so grant them there. `statuses: write` is only needed for `status-context`. In the checks of a pull request, the job is shown as `priority-boarding / Priority boarding`.
 
 The inputs are the [inputs](#inputs) of the action, with the secrets `update-token` and `token`. Some defaults differ from the action's, to match the setup this README recommends:
 
@@ -117,7 +117,7 @@ The inputs are the [inputs](#inputs) of the action, with the secrets `update-tok
 | `no-pull-request-weight` | `-100`                                                    |
 | `timeout-minutes`        | `180`                                                     |
 | `require-up-to-date`     | `true`                                                    |
-| `status-context`         | `wait-for-turn`                                           |
+| `status-context`         | `priority-boarding`                                       |
 
 With these weights, label a pull request `urgent` to move its run to the front of the queue, also while it is waiting. Create the label in your repository first. Your own `label-weights` replace the defaults, so add `urgent=10` to them to keep it.
 
@@ -149,7 +149,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
 ```yaml
   required:
-    needs: [wait-for-turn, deploy]
+    needs: [priority-boarding, deploy]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -173,7 +173,7 @@ on:
     branches: [main]
 
 # ...
-      - uses: udondan/wait-for-turn@v1
+      - uses: udondan/priority-boarding@v1
         with:
           label-weights: |
             autorelease: pending=-10
@@ -192,7 +192,7 @@ With branch protection requiring branches to be up to date, testing a branch tha
 Not every branch gets updated after a merge. release-please, for example, leaves its pull request alone when the merged commit doesn't change the changelog, so its runs would fail forever. With `update-token`, the action rebases a branch that is behind onto the base branch before failing, and the new commit starts a new run. Pushes made with `github.token` don't start workflow runs, so `update-token` has to be a personal access token or a GitHub App token with `contents: write` and `pull-requests: write`. Branches of forks are never updated.
 
 ```yaml
-      - uses: udondan/wait-for-turn@v1
+      - uses: udondan/priority-boarding@v1
         with:
           require-up-to-date: true
           update-token: ${{ secrets.UPDATE_TOKEN }}
@@ -205,7 +205,7 @@ After a merge, the other pull requests are updated at different times. A release
 With `update-pending-branches: true` and `update-token`, the waiting run also rebases such a pull request when its tested branch is behind, and lets the new commit go first. This keeps the order by weight after a merge, without waiting for the branch to be updated by someone else. It costs a run per rebase, also for a pull request whose tests fail: it is tested again each time its base branch moves on. Branches of forks are never updated.
 
 ```yaml
-      - uses: udondan/wait-for-turn@v1
+      - uses: udondan/priority-boarding@v1
         with:
           require-up-to-date: true
           update-pending-branches: true
@@ -222,7 +222,7 @@ The log shows the queue, but GitHub doesn't show the log of a composite action l
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/statuses-dark.webp">
-  <img alt="Examples of the wait-for-turn commit status: took the turn, waiting in line behind a running pull request, waiting for a pull request to be merged, letting a pull request with a higher weight go first, the turn is free, branch behind, outdated commit" src=".github/statuses-light.webp" width="820">
+  <img alt="Examples of the priority-boarding commit status: took the turn, waiting in line behind a running pull request, waiting for a pull request to be merged, letting a pull request with a higher weight go first, the turn is free, branch behind, outdated commit" src=".github/statuses-light.webp" width="862">
 </picture>
 
 The token needs `statuses: write`. Without it, the action logs a warning and waits without the status. A run killed before it can clean up leaves the status pending.
@@ -234,9 +234,9 @@ The token needs `statuses: write`. Without it, the action logs a warning and wai
       pull-requests: read
       statuses: write
     steps:
-      - uses: udondan/wait-for-turn@v1
+      - uses: udondan/priority-boarding@v1
         with:
-          status-context: wait-for-turn
+          status-context: priority-boarding
 ```
 
 ## Alternatives
@@ -252,11 +252,11 @@ This action is for repositories without merge queue, for example ones owned by a
 Pull requests from forks and from Dependabot get a read-only token and can't create the lock ref. The action then fails with a permission error. Skip the wait job for them instead:
 
 ```yaml
-  wait-for-turn:
+  priority-boarding:
     if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
 ```
 
-Jobs after it then have to treat a skipped wait as success, for example with `if: needs.wait-for-turn.result == 'failure' || needs.wait-for-turn.result == 'cancelled'` in the `Check turn` step. They don't get the secrets either, so skip the jobs that use the shared resources for them as well.
+Jobs after it then have to treat a skipped wait as success, for example with `if: needs.priority-boarding.result == 'failure' || needs.priority-boarding.result == 'cancelled'` in the `Check turn` step. They don't get the secrets either, so skip the jobs that use the shared resources for them as well.
 
 ## Testing
 

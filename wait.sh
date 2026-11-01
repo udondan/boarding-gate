@@ -2,7 +2,7 @@
 # Waits for the turn of this run among the active runs of the same workflow.
 #
 # The turn is held by the run that created the newest lock ref
-# refs/wait-for-turn/<workflow>/<n>. It is released when that run completes.
+# refs/priority-boarding/<workflow>/<n>. It is released when that run completes.
 # The next run takes the turn by creating ref <n+1>. Creating a ref fails if it
 # already exists, so only one run can take the turn.
 #
@@ -59,7 +59,7 @@ if ! [[ "$no_pr_weight" =~ ^-?(0|[1-9][0-9]*)$ ]]; then
   exit 1
 fi
 repo="repos/$GITHUB_REPOSITORY"
-lock_prefix="wait-for-turn/$workflow"
+lock_prefix="priority-boarding/$workflow"
 
 if [ "$require_up_to_date" = "true" ] && { [ -z "${BASE_REF:-}" ] || [ -z "${HEAD_SHA:-}" ]; }; then
   echo "::notice::require-up-to-date only applies to pull_request events, skipping the check."
@@ -357,7 +357,7 @@ take_turn() {
   if [ -z "$tree" ]; then
     tree=$(gh api "$repo/git/commits/$GITHUB_SHA" --jq .tree.sha) || return 1
   fi
-  local message="wait-for-turn: run $GITHUB_RUN_ID"
+  local message="priority-boarding: run $GITHUB_RUN_ID"
   if [ -n "${PR_NUMBER:-}" ]; then
     message="$message, pull request $PR_NUMBER"
   fi

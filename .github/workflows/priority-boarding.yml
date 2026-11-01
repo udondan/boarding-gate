@@ -3,13 +3,13 @@
 # plus the job settings an action can't set, like the concurrency group that
 # cancels outdated waiting runs. Call it as a job:
 #
-#   wait-for-turn:
+#   priority-boarding:
 #     permissions:
 #       actions: read
 #       contents: write
 #       pull-requests: read
 #       statuses: write
-#     uses: udondan/wait-for-turn/.github/workflows/wait-for-turn.yml@v1
+#     uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@v1
 #
 # It only runs when called, never on events of this repository. The inputs are
 # the inputs of the action. Some defaults differ from the action's, see
@@ -17,7 +17,7 @@
 #
 # `uses: $/` runs the action of this repository at the commit of this file, so
 # workflow and action never differ, whatever ref the caller uses.
-name: Wait for turn
+name: Priority boarding
 
 on:
   workflow_call:
@@ -68,7 +68,7 @@ on:
       status-context:
         description: Context of a commit status showing the place in the queue. Empty disables it.
         type: string
-        default: wait-for-turn
+        default: priority-boarding
     secrets:
       update-token:
         description: Token to rebase a pull request branch that is behind. Without it, such a run only fails.
@@ -82,18 +82,18 @@ on:
 # (labels) and, with status-context, statuses: write.
 
 jobs:
-  wait-for-turn:
-    name: Wait for turn
+  priority-boarding:
+    name: Priority boarding
     runs-on: ubuntu-latest
     # A new commit on the branch cancels the waiting of the outdated run, so the
     # new run doesn't queue behind it. Once a run has the turn, this job is
     # done: the jobs after it that already run are never cancelled. github.*
     # is the context of the calling workflow.
     concurrency:
-      group: wait-for-turn-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+      group: priority-boarding-${{ github.workflow }}-${{ github.head_ref || github.ref }}
       cancel-in-progress: true
     steps:
-      - name: Wait for turn
+      - name: Priority boarding
         uses: $/
         with:
           workflow: ${{ inputs.workflow }}

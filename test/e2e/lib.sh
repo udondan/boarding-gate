@@ -5,7 +5,7 @@
 # shellcheck disable=SC2016 # jq variables in single quotes
 set -euo pipefail
 
-E2E_REPO=${E2E_REPO:-udondan/wait-for-turn-e2e}
+E2E_REPO=${E2E_REPO:-udondan/priority-boarding-e2e}
 E2E_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 R="repos/$E2E_REPO"
 WORKFLOW=pipeline.yml
@@ -121,7 +121,7 @@ open_pr() {
     SKIP_CI=true put_file "$branch" "$EXTRA_FILE" "e2e" "chore: add $EXTRA_FILE [skip ci]" >/dev/null
   fi
   bump_file "$branch" "$path" >/dev/null
-  url=$(gh pr create -R "$E2E_REPO" --head "$branch" --base main --title "$title" --body "wait-for-turn e2e" "${args[@]}")
+  url=$(gh pr create -R "$E2E_REPO" --head "$branch" --base main --title "$title" --body "priority-boarding e2e" "${args[@]}")
   log "opened #${url##*/} ($title${*:+, $*})"
   echo "${url##*/}"
 }
@@ -156,16 +156,16 @@ rebase_pr() {
 # Newest lock ref of the pipeline: "<run id> <pull request>".
 holder() {
   local sha
-  sha=$(gh api "$R/git/matching-refs/wait-for-turn/$WORKFLOW/" --jq 'map(.ref | split("/") | last | tonumber) as $n | .[] | select((.ref | split("/") | last | tonumber) == ($n | max)) | .object.sha')
+  sha=$(gh api "$R/git/matching-refs/priority-boarding/$WORKFLOW/" --jq 'map(.ref | split("/") | last | tonumber) as $n | .[] | select((.ref | split("/") | last | tonumber) == ($n | max)) | .object.sha')
   [ -n "$sha" ] || return 0
   gh api "$R/git/commits/$sha" --jq '.message | [capture("run (?<id>[0-9]+)").id, (capture("pull request (?<pr>[0-9]+)").pr // "")] | join(" ")'
 }
 holder_pr() { holder | cut -s -d ' ' -f 2; }
 
-# Latest wait-for-turn status of the pull request's head commit:
+# Latest priority-boarding status of the pull request's head commit:
 # "<state> <description>".
 pr_status() {
-  gh api "$R/commits/$(head_sha "$1")/statuses" --jq '[.[] | select(.context == "wait-for-turn")][0] // empty | "\(.state) \(.description)"'
+  gh api "$R/commits/$(head_sha "$1")/statuses" --jq '[.[] | select(.context == "priority-boarding")][0] // empty | "\(.state) \(.description)"'
 }
 
 # Newest run of the pipeline for the pull request's head commit.
@@ -257,7 +257,7 @@ reset() {
   for branch in $(gh api --paginate "$R/branches?per_page=100" --jq '.[].name | select(. != "main")'); do
     gh api -X DELETE "$R/git/refs/heads/$branch" --silent || true
   done
-  for ref in $(gh api "$R/git/matching-refs/wait-for-turn/" --jq '.[].ref') $(gh api "$R/git/matching-refs/e2e-resource/" --jq '.[].ref'); do
+  for ref in $(gh api "$R/git/matching-refs/priority-boarding/" --jq '.[].ref') $(gh api "$R/git/matching-refs/e2e-resource/" --jq '.[].ref'); do
     gh api -X DELETE "$R/git/$ref" --silent || true
   done
   configure "${DEFAULT_VARS[@]}" "LABEL_WEIGHTS=$DEFAULT_LABEL_WEIGHTS"
@@ -328,7 +328,7 @@ expect_turn_pattern() {
   check turn-order "$(echo "$actual" | grep -Eqx "$1" && echo true || echo false)" "expected /$1/, got $actual"
 }
 
-# expect_status <pr> <regex>: a wait-for-turn status of one of the pull
+# expect_status <pr> <regex>: a priority-boarding status of one of the pull
 # request's runs had a "<state> <description>" matching the regex.
 expect_status() {
   local ok

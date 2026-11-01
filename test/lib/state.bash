@@ -94,12 +94,12 @@ fail_api() {
 }
 
 lock_dir() {
-  echo "$FAKE_STATE/refs/wait-for-turn/$FAKE_WORKFLOW"
+  echo "$FAKE_STATE/refs/priority-boarding/$FAKE_WORKFLOW"
 }
 
 # hold_lock <n> <run id> [pr]: creates lock ref n of another run.
 hold_lock() {
-  local message="wait-for-turn: run $2"
+  local message="priority-boarding: run $2"
   [ -z "${3:-}" ] || message="$message, pull request $3"
   mkdir -p "$(lock_dir)"
   new_commit "$message" >"$(lock_dir)/$1"

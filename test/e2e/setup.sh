@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Creates or updates the test repository (E2E_REPO, default
-# udondan/wait-for-turn-e2e): pushes template/ with the pipeline using
-# wait-for-turn at <action ref>, enables auto-merge, creates the labels and a
+# udondan/priority-boarding-e2e): pushes template/ with the pipeline using
+# priority-boarding at <action ref>, enables auto-merge, creates the labels and a
 # ruleset that requires the checks "required" (pipeline.yml) and "extra-check"
 # (extra.yml) and up-to-date branches, and sets
 # the default variables. Safe to run again, for example to test another ref.
@@ -17,7 +17,7 @@ action_ref=${1:-main}
 
 if ! gh repo view "$E2E_REPO" --json name >/dev/null 2>&1; then
   log "creating $E2E_REPO"
-  gh repo create "$E2E_REPO" --public --description "End-to-end tests of udondan/wait-for-turn. Throwaway, changed by scripts." >/dev/null
+  gh repo create "$E2E_REPO" --public --description "End-to-end tests of udondan/priority-boarding. Throwaway, changed by scripts." >/dev/null
 fi
 
 gh api -X PATCH "$R" -F allow_auto_merge=true -F allow_squash_merge=true -F allow_merge_commit=false \
@@ -54,14 +54,14 @@ cp -R "$E2E_DIR/template/." "$work/"
 sed -i.bak "s|__ACTION_REF__|$action_ref|g" "$work/.github/workflows/"*.yml
 rm "$work/.github/workflows/"*.bak
 # shellcheck disable=SC2016 # Markdown backticks
-printf '# wait-for-turn e2e\n\nThrowaway repository for the end-to-end tests of [wait-for-turn](https://github.com/udondan/wait-for-turn), see test/e2e there. Changed by scripts, testing `%s`.\n' "$action_ref" >"$work/README.md"
+printf '# priority-boarding e2e\n\nThrowaway repository for the end-to-end tests of [priority-boarding](https://github.com/udondan/priority-boarding), see test/e2e there. Changed by scripts, testing `%s`.\n' "$action_ref" >"$work/README.md"
 git -C "$work" add -A
 if ! git -C "$work" diff --cached --quiet; then
   # The test repository has no feature branches for its pipeline, allow a
   # commit to main past local hooks that block it.
-  ALLOW_MAIN=true git -C "$work" -c user.name="$(gh api user --jq .login)" -c user.email="$(gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"')" commit -q -m "chore: set up pipeline with wait-for-turn@$action_ref"
+  ALLOW_MAIN=true git -C "$work" -c user.name="$(gh api user --jq .login)" -c user.email="$(gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"')" commit -q -m "chore: set up pipeline with priority-boarding@$action_ref"
   ALLOW_MAIN=true git -C "$work" push -q origin main
-  log "pushed template with wait-for-turn@$action_ref"
+  log "pushed template with priority-boarding@$action_ref"
 fi
 
 if [ -n "$ruleset_id" ]; then
