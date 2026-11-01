@@ -1,5 +1,5 @@
 name: Wait for turn
-description: Queue runs of a workflow so only one at a time uses shared resources, ordered by pull request labels
+description: Queue workflow runs for shared resources, one at a time, by pull request labels, aware of auto-merge and outdated branches
 author: udondan
 branding:
   icon: clock
