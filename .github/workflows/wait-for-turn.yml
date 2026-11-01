@@ -30,6 +30,7 @@ on:
         description: Priority of runs by pull request label, one "label=weight" per line.
         type: string
         default: |
+          urgent=10
           autorelease: pending=-10
           renovate=-5
       no-pull-request-weight:

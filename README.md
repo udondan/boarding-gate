@@ -15,7 +15,7 @@ GitHub Action that queues the runs of a workflow so only one run at a time uses 
 
 ## How it works
 
-The run that has the turn holds the lock ref `refs/wait-for-turn/<workflow>/<n>`. The turn is released when that run completes, including all jobs after the wait, or, if its pull request is about to be auto-merged, after the merge (see [Outdated branches](#outdated-branches)). The next run takes the turn by creating ref `<n+1>`. Creating a ref fails if it already exists, so only one run can take the turn. Old lock refs are deleted.
+The run that has the turn holds the lock ref `refs/wait-for-turn/<workflow>/<n>`. The turn is released when that run completes, including all jobs after the wait, or, if its pull request is about to be auto-merged, after the merge (see [Outdated branches](#outdated-branches)). A failed or cancelled run releases it as well, so cancelling the run holding the turn frees it, also in the middle of a job after the wait. The next run takes the turn by creating ref `<n+1>`. Creating a ref fails if it already exists, so only one run can take the turn. Old lock refs are deleted.
 
 Waiting runs are ordered by weight (highest first), then by start time. A re-run of the run holding the turn keeps it. A re-run of any other run queues by its new start time. A run of a pull request that has a newer run is left out of the queue: its commit is outdated, and it can stay active for a while after it stopped waiting, for example while other jobs finish after it failed as outdated. A waiting run fails as soon as its pull request has a newer run of another commit, so it never tests the outdated commit. To stop it right away instead of at its next check, add a `concurrency` group (see [Workflow setup](#workflow-setup)).
 
@@ -111,13 +111,15 @@ It runs the action with a `concurrency` group that cancels outdated waiting runs
 
 The inputs are the [inputs](#inputs) of the action, with the secrets `update-token` and `token`. Some defaults differ from the action's, to match the setup this README recommends:
 
-| Name                     | Default of the workflow                      |
-| ------------------------ | -------------------------------------------- |
-| `label-weights`          | `autorelease: pending=-10` and `renovate=-5` |
-| `no-pull-request-weight` | `-100`                                       |
-| `timeout-minutes`        | `180`                                        |
-| `require-up-to-date`     | `true`                                       |
-| `status-context`         | `wait-for-turn`                              |
+| Name                     | Default of the workflow                                   |
+| ------------------------ | --------------------------------------------------------- |
+| `label-weights`          | `urgent=10`, `autorelease: pending=-10` and `renovate=-5` |
+| `no-pull-request-weight` | `-100`                                                    |
+| `timeout-minutes`        | `180`                                                     |
+| `require-up-to-date`     | `true`                                                    |
+| `status-context`         | `wait-for-turn`                                           |
+
+With these weights, label a pull request `urgent` to move its run to the front of the queue, also while it is waiting. Create the label in your repository first. Your own `label-weights` replace the defaults, so add `urgent=10` to them to keep it.
 
 Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
@@ -159,7 +161,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
 ## Priorities
 
-A run's weight is the sum of the weights of its pull request's labels. Runs of pull requests without matching labels have weight 0. Runs without a pull request, for example of a push to main, have the weight `no-pull-request-weight`, 0 by default. Negative weights move runs to the back of the queue, positive weights to the front. With the example above, unlabelled pull requests are tested first, then Renovate updates (configure Renovate with `"labels": ["renovate"]`), and release-please pull requests (labelled `autorelease: pending`) last. A label like `urgent=10` lets you move a single pull request to the front.
+A run's weight is the sum of the weights of its pull request's labels. Runs of pull requests without matching labels have weight 0. Runs without a pull request, for example of a push to main, have the weight `no-pull-request-weight`, 0 by default. Negative weights move runs to the back of the queue, positive weights to the front. With the example above, unlabelled pull requests are tested first, then Renovate updates (configure Renovate with `"labels": ["renovate"]`), and release-please pull requests (labelled `autorelease: pending`) last. A label like `urgent=10` lets you move a single pull request to the front, also while it is waiting. The [reusable workflow](#reusable-workflow) has it by default.
 
 To test main as well, but only after the pull requests, give runs without a pull request the lowest weight:
 
@@ -255,3 +257,7 @@ Pull requests from forks and from Dependabot get a read-only token and can't cre
 ```
 
 Jobs after it then have to treat a skipped wait as success, for example with `if: needs.wait-for-turn.result == 'failure' || needs.wait-for-turn.result == 'cancelled'` in the `Check turn` step. They don't get the secrets either, so skip the jobs that use the shared resources for them as well.
+
+## Testing
+
+The [bats tests](test/) run the action against a fake GitHub API. The [end-to-end tests](test/e2e/README.md) run it for real in a test repository: bursts of parallel pull requests, priorities and relabelling, Renovate pull requests with auto-merge and rebases, yielding to pending pull requests, pushes to main, failed, cancelled, timed out and re-run runs, and the commit statuses. They check that only one run at a time uses the resource, in the right order, and that the turn is released when it should be.
