@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/udondan/priority-boarding/compare/v1.10.0...v1.10.1) (2026-11-01)
+
+
+### Miscellaneous Chores
+
+* release 1.10.1 ([#42](https://github.com/udondan/priority-boarding/issues/42)) ([d488163](https://github.com/udondan/priority-boarding/commit/d48816310df8c0d9c12d3fa4bc6556b6a8fa1b81))
+
 ## [1.10.0](https://github.com/udondan/priority-boarding/compare/v1.9.0...v1.10.0) (2026-11-01)
 
 
