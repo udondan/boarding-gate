@@ -286,6 +286,12 @@ The list of runs doesn't name the pull request of a fork's run, so it is found b
 
 Runs of forks get no secrets on `pull_request`. Only jobs that use the shared resources without secrets can run for them, like a test environment that needs no credentials. Skip the other jobs for forks. A read-only token doesn't make a runner safe for the code of a fork: on a self-hosted runner that is reused, that code can stay on the machine and read the credentials of later jobs, or reach internal services. Run forks only on GitHub-hosted runners or on isolated self-hosted runners that are used for one job and then discarded.
 
+## pull_request_target
+
+A workflow on `pull_request_target` can wait like one on `pull_request`. Its runs name the pull request and its head commit, so they are ordered by its labels, and the turn is released by merging it as usual. Their token is writable, also for pull requests from forks, so these runs take the turn themselves and need no `workflow_run` workflow. Branches of forks are still never rebased.
+
+They run the workflow of the base branch with its secrets and a writable token. The action never checks out the code of the pull request, but the jobs after it must not run that code either, or it gets the secrets and the token. For forks, prefer `pull_request` with the `workflow_run` workflow above.
+
 ## Pull requests from Dependabot
 
 Runs of Dependabot pull requests need nothing extra. Their token is read-only by default, but the `permissions` of the wait job raise it, as for any other run. Without `contents: write` the action fails right away instead of blocking the queue.
