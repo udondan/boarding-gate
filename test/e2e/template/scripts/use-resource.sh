@@ -9,6 +9,9 @@
 # runs in. That is recorded as ref refs/e2e-resource/overlap-<run id>, which the
 # e2e analyzer looks for, and fails the job.
 #
+# With READ_ONLY=true (runs of forks, their token is read-only) it only holds
+# the resource for <seconds>: an overlap shows in the times of the steps only.
+#
 # Fails on purpose when the checked out commit has a file named fail-deploy.
 set -euo pipefail
 
@@ -17,20 +20,23 @@ seconds=$2
 repo="repos/$GITHUB_REPOSITORY"
 ref="e2e-resource/$resource"
 
-tree=$(gh api "$repo/git/commits/$HEAD_SHA" --jq .tree.sha)
-commit=$(gh api "$repo/git/commits" -f message="e2e-resource: run $GITHUB_RUN_ID, pull request ${PR_NUMBER:-none}" -f tree="$tree" --jq .sha)
+take() {
+  local tree out other message
+  tree=$(gh api "$repo/git/commits/$HEAD_SHA" --jq .tree.sha)
+  commit=$(gh api "$repo/git/commits" -f message="e2e-resource: run $GITHUB_RUN_ID, pull request ${PR_NUMBER:-none}" -f tree="$tree" --jq .sha)
 
-if ! out=$(gh api "$repo/git/refs" -f ref="refs/$ref" -f sha="$commit" --silent 2>&1); then
-  if [[ "$out" == *"HTTP 422"* ]]; then
-    other=$(gh api "$repo/git/ref/$ref" --jq .object.sha)
-    message=$(gh api "$repo/git/commits/$other" --jq .message || true)
-    gh api "$repo/git/refs" -f ref="refs/e2e-resource/overlap-$GITHUB_RUN_ID" -f sha="$commit" --silent || true
-    echo "::error::OVERLAP: resource $resource is already used by: $message"
+  if ! out=$(gh api "$repo/git/refs" -f ref="refs/$ref" -f sha="$commit" --silent 2>&1); then
+    if [[ "$out" == *"HTTP 422"* ]]; then
+      other=$(gh api "$repo/git/ref/$ref" --jq .object.sha)
+      message=$(gh api "$repo/git/commits/$other" --jq .message || true)
+      gh api "$repo/git/refs" -f ref="refs/e2e-resource/overlap-$GITHUB_RUN_ID" -f sha="$commit" --silent || true
+      echo "::error::OVERLAP: resource $resource is already used by: $message"
+      exit 1
+    fi
+    echo "::error::Taking resource $resource failed: $out"
     exit 1
   fi
-  echo "::error::Taking resource $resource failed: $out"
-  exit 1
-fi
+}
 
 release() {
   # Delete the ref only while it is still ours.
@@ -40,8 +46,12 @@ release() {
     gh api -X DELETE "$repo/git/refs/$ref" --silent || true
   fi
 }
-trap release EXIT
 trap 'exit 130' INT TERM
+
+if [ "${READ_ONLY:-false}" != true ]; then
+  take
+  trap release EXIT
+fi
 
 echo "Using resource $resource for $seconds seconds."
 # In the background, so the INT/TERM trap runs right away on cancel.

@@ -14,7 +14,7 @@ start=$(cat "$dir/start")
 # Runs are listed newest first. Unfiltered, as wait.sh does: the created filter
 # is backed by the same search index as the status filter.
 runs=$(gh api --paginate "$repo/actions/runs?per_page=100" --jq '.workflow_runs[]' | jq -s --arg s "$start" '[.[] | select(.created_at >= $s)]')
-runs=$(jq '[.[] | {id, run_attempt, status, conclusion, path, event, head_sha, head_branch,
+runs=$(jq '[.[] | {id, run_attempt, status, conclusion, path, event, head_sha, head_branch, head_repo: .head_repository.full_name,
   pr: (.pull_requests[0].number // null), run_started_at, created_at, updated_at, html_url}]' <<<"$runs")
 
 jobs='{}'
@@ -35,7 +35,7 @@ for sha in $(jq -r '[.[].head_sha] | unique | .[]' <<<"$runs"); do
   statuses=$(jq --arg sha "$sha" --argjson s "$s" '. + {($sha): $s}' <<<"$statuses")
 done
 
-prs=$(gh api "$repo/pulls?state=all&sort=updated&direction=desc&per_page=100" | jq --arg s "$start" '[.[] | select(.updated_at >= $s) | {number, title, state, merged_at, closed_at, head_ref: .head.ref, head_sha: .head.sha, labels: [.labels[].name]}]')
+prs=$(gh api "$repo/pulls?state=all&sort=updated&direction=desc&per_page=100" | jq --arg s "$start" '[.[] | select(.updated_at >= $s) | {number, title, state, merged_at, closed_at, head_ref: .head.ref, head_repo: .head.repo.full_name, head_sha: .head.sha, labels: [.labels[].name]}]')
 overlaps=$(gh api "$repo/git/matching-refs/e2e-resource/overlap-" --jq '[.[].ref]')
 
 jq -n --argjson runs "$runs" --argjson jobs "$jobs" --argjson annotations "$annotations" \

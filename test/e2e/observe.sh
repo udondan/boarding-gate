@@ -26,8 +26,8 @@ lock_commit() {
 while true; do
   t=$(date -u +%FT%TZ)
   if refs=$(gh api "$repo/git/matching-refs/priority-boarding/" --jq '.[] | "\(.ref) \(.object.sha)"') &&
-    prs=$(gh api "$repo/pulls?state=all&sort=updated&direction=desc&per_page=50" --jq '[.[] | {number, state, merged_at, auto_merge: (.auto_merge != null), labels: [.labels[].name], head_sha: .head.sha, head_ref: .head.ref}]') &&
-    runs=$(gh api "$repo/actions/runs?per_page=100" --jq '[.workflow_runs[] | {id, run_attempt, status, conclusion, path, event, head_sha, head_branch, pr: (.pull_requests[0].number // null), run_started_at}]'); then
+    prs=$(gh api "$repo/pulls?state=all&sort=updated&direction=desc&per_page=50" --jq '[.[] | {number, state, merged_at, auto_merge: (.auto_merge != null), labels: [.labels[].name], head_sha: .head.sha, head_ref: .head.ref, head_repo: .head.repo.full_name}]') &&
+    runs=$(gh api "$repo/actions/runs?per_page=100" --jq '[.workflow_runs[] | {id, run_attempt, status, conclusion, path, event, head_sha, head_branch, head_repo: .head_repository.full_name, pr: (.pull_requests[0].number // null), run_started_at}]'); then
     locks='[]'
     while read -r ref sha; do
       [ -n "$ref" ] || continue

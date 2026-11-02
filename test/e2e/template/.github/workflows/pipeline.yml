@@ -56,6 +56,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           SECONDS_TO_USE: ${{ vars.DEPLOY_SECONDS || '60' }}
+          # Runs of forks get a read-only token.
+          READ_ONLY: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: exec bash scripts/use-resource.sh pipeline "$SECONDS_TO_USE"
 
   required:

@@ -20,9 +20,11 @@ $final[0] as $final
 
 # The pull request of a run: the API drops it once the pull request is closed,
 # so fall back to what the observer saw, then to the pull request whose head
-# commit the run tested.
+# commit the run tested, then to the one of its fork and branch (runs of forks
+# never name their pull request).
 | ($snaps | map(.runs[] | select(.pr != null) | {key: (.id | tostring), value: .pr}) | from_entries) as $run_pr
 | ([$snaps[].prs[], $final.prs[]] | map({key: .head_sha, value: .number}) | from_entries) as $sha_pr
+| ([$snaps[].prs[], $final.prs[]] | map(select(.head_repo != null) | {key: "\(.head_repo):\(.head_ref)", value: .number}) | from_entries) as $branch_pr
 
 # Label weight of a pull request at time t, from the last snapshot before t.
 | def weight($pr; $t):
@@ -35,7 +37,8 @@ $final[0] as $final
 
 [$final.runs[] | {
   id, workflow: (.path | workflow_file), event, head_sha, conclusion, html_url,
-  pr: (if .event == "pull_request" then (.pr // $run_pr[.id | tostring] // $sha_pr[.head_sha]) else null end),
+  pr: (if .event == "pull_request" or .event == "pull_request_target"
+    then (.pr // $run_pr[.id | tostring] // $sha_pr[.head_sha] // $branch_pr["\(.head_repo):\(.head_branch)"]) else null end),
   jobs: ($final.jobs[.id | tostring] // [])
 }] as $runs
 

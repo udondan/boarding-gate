@@ -11,6 +11,8 @@ They don't run on pull requests. A scenario takes 3 to 15 minutes, all of them a
 - `pipeline.yml` calls the reusable workflow, then a `deploy` job uses a "shared resource" for `DEPLOY_SECONDS`, and `required` sums up both. The deploy takes the resource by creating the ref `refs/e2e-resource/pipeline`. If it exists, two deploys overlap: the deploy records `refs/e2e-resource/overlap-<run id>` and fails. It also fails on purpose when the branch has a file `fail-deploy`.
 - `extra.yml` is a second required check, failing when the branch has a file `fail-extra`, so a pull request can pass the pipeline and still not be merged.
 - `nostatus.yml` uses the action directly, without `statuses: write`. It only runs while the variable `NOSTATUS` is `true`.
+- `forks.yml` takes the turn on behalf of the runs of `pipeline.yml` from forks (`workflow_run`), like the workflow users add for forks. Runs of forks get a read-only token, so their deploy only holds the resource for `DEPLOY_SECONDS` without the ref: an overlap shows in the times of the steps.
+- `target.yml` is the pipeline on `pull_request_target`, with its own queue and resource. It only runs while the variable `TARGET` is `true`.
 - A ruleset on main requires `required` and `extra-check` and up-to-date branches. Auto-merge is on, squash only.
 - The settings of the action come from repository variables (`POLL`, `QUEUED_POLL`, `TIMEOUT`, `MERGE_WAIT`, `YIELD`, `UPDATE_PENDING`, `USE_UPDATE_TOKEN`, `LABEL_WEIGHTS`, ...), so scenarios change them without a commit to main, which would make every open pull request behind. `lib.sh` has the defaults.
 
@@ -56,6 +58,12 @@ It needs the secret `E2E_TOKEN` in this repository: a fine-grained personal acce
 gh secret set E2E_TOKEN -R udondan/priority-boarding
 ```
 
+Scenario 15 also needs the secret `E2E_FORK_TOKEN`: a classic personal access token of a second account, with the scopes `public_repo` and `workflow`. The scenario forks the test repository with it, pushes branches to the fork and opens pull requests from it. A fine-grained token can't fork a repository of another account. Runs of the fork wait for approval as long as the account has no merged pull request, the scenario approves them with `E2E_TOKEN`. Locally, set `E2E_FORK_TOKEN` in the environment.
+
+```sh
+gh secret set E2E_FORK_TOKEN -R udondan/priority-boarding
+```
+
 Each scenario first resets the repository: it closes pull requests, cancels runs, deletes branches and lock refs and restores the default variables. Don't run two at the same time.
 
 | Scenario              | What happens                                                                                       |
@@ -74,6 +82,7 @@ Each scenario first resets the repository: it closes pull requests, cancels runs
 | 12-cancel-timeout     | Cancelled waiting run, timed out run, holder cancelled mid-deploy.                                 |
 | 13-reruns             | A re-run of the holder keeps the turn, a later re-run queues again.                                |
 | 14-no-status          | Without `statuses: write` the action warns and queues without the status.                          |
+| 15-forks              | A pull request from a fork goes first by its label: `forks.yml` takes the turn for its read-only run, on `pull_request_target` it takes the turn itself. |
 
 ## Results
 

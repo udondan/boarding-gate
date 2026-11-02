@@ -1,0 +1,34 @@
+# Takes the turn on behalf of runs of the pipeline for pull requests from forks,
+# like the workflow users add for forks (see README.md of priority-boarding).
+# The runs of forks get a read-only token: they wait, and this run takes the
+# turn for them. Its inputs match the wait job of pipeline.yml, so both see the
+# same queue.
+name: Pipeline for forks
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] no code of the pull request is run
+    workflows: [Pipeline]
+    types: [in_progress]
+
+permissions: {}
+
+jobs:
+  priority-boarding:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name != github.repository
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: read
+      statuses: write
+    uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@__ACTION_REF__ # zizmor: ignore[unpinned-uses] the ref under test
+    with:
+      run-id: ${{ format('{0}', github.event.workflow_run.id) }}
+      label-weights: ${{ vars.LABEL_WEIGHTS }}
+      no-pull-request-weight: ${{ fromJSON(vars.NO_PR_WEIGHT || '-100') }}
+      poll-interval-seconds: ${{ fromJSON(vars.POLL || '10') }}
+      queued-poll-interval-seconds: ${{ fromJSON(vars.QUEUED_POLL || '30') }}
+      timeout-minutes: ${{ fromJSON(vars.TIMEOUT || '60') }}
+      require-up-to-date: ${{ vars.REQUIRE_UP_TO_DATE != 'false' }}
+      merge-wait-minutes: ${{ fromJSON(vars.MERGE_WAIT || '10') }}
+      yield-to-pending-minutes: ${{ fromJSON(vars.YIELD || '10') }}
+      status-context: priority-boarding

@@ -30,6 +30,7 @@ DEFAULT_VARS=(
   NO_PR_WEIGHT=-100
   TEST_MAIN=false
   NOSTATUS=false
+  TARGET=false
   DEPLOY_SECONDS=60
 )
 DEFAULT_LABEL_WEIGHTS='urgent=10
@@ -153,6 +154,49 @@ rebase_pr() {
   log "rebased #$1"
 }
 
+# Pull requests from a fork, owned by the account of E2E_FORK_TOKEN (a classic
+# token with public_repo and workflow, see README.md). fork_setup creates the
+# fork or brings its main up to date, fork_pr opens a pull request from it.
+fork_gh() { GH_TOKEN=$E2E_FORK_TOKEN gh "$@"; }
+FORK=
+FORK_OWNER=
+fork_setup() {
+  [ -n "${E2E_FORK_TOKEN:-}" ] || die "E2E_FORK_TOKEN is not set, see README.md"
+  FORK_OWNER=$(fork_gh api user --jq .login)
+  # Returns the fork if it exists.
+  FORK=$(fork_gh api -X POST "$R/forks" -F default_branch_only=true --jq .full_name)
+  wait_until "fork $FORK exists" 300 fork_gh api "repos/$FORK/git/ref/heads/main" --silent
+  fork_gh api -X POST "repos/$FORK/merge-upstream" -f branch=main --silent
+  log "fork $FORK is up to date"
+}
+
+# fork_pr <name>: pushes a branch to the fork and opens a pull request from it,
+# as the owner of the fork. Prints its number.
+fork_pr() {
+  local branch="fork/$1-$RANDOM" content url
+  fork_gh api "repos/$FORK/git/refs" -f ref="refs/heads/$branch" -f sha="$(main_sha)" --silent
+  content=$(printf '%s %s' "$RANDOM" "$(date -u +%FT%TZ)" | base64 | tr -d '\n')
+  fork_gh api -X PUT "repos/$FORK/contents/notes/$1.txt" -f message="feat: $1" -f branch="$branch" -f content="$content" --silent
+  url=$(fork_gh pr create -R "$E2E_REPO" --head "$FORK_OWNER:$branch" --base main --title "feat: $1" --body "priority-boarding e2e")
+  log "opened #${url##*/} (feat: $1, from $FORK)"
+  echo "${url##*/}"
+}
+
+# Runs of first-time contributors from forks wait for approval.
+approve_fork_runs() {
+  local id
+  for id in $(gh api "$R/actions/runs?per_page=100" --jq ".workflow_runs[] | select(.head_repository.full_name == \"$FORK\" and (.status == \"action_required\" or .conclusion == \"action_required\")) | .id"); do
+    gh api -X POST "$R/actions/runs/$id/approve" --silent && log "approved run $id"
+  done
+}
+
+# fork_status_matches <pr> <regex>: like status_matches, but first approves
+# runs of the fork that wait for approval.
+fork_status_matches() {
+  approve_fork_runs
+  status_matches "$@"
+}
+
 # Newest lock ref of the pipeline: "<run id> <pull request>".
 holder() {
   local sha
@@ -162,10 +206,10 @@ holder() {
 }
 holder_pr() { holder | cut -s -d ' ' -f 2; }
 
-# Latest priority-boarding status of the pull request's head commit:
-# "<state> <description>".
+# Latest status of the pull request's head commit with the context
+# STATUS_CONTEXT (default priority-boarding): "<state> <description>".
 pr_status() {
-  gh api "$R/commits/$(head_sha "$1")/statuses" --jq '[.[] | select(.context == "priority-boarding")][0] // empty | "\(.state) \(.description)"'
+  gh api "$R/commits/$(head_sha "$1")/statuses" --jq "[.[] | select(.context == \"${STATUS_CONTEXT:-priority-boarding}\")][0] // empty | \"\\(.state) \\(.description)\""
 }
 
 # Newest run of the pipeline for the pull request's head commit.
@@ -257,6 +301,11 @@ reset() {
   for branch in $(gh api --paginate "$R/branches?per_page=100" --jq '.[].name | select(. != "main")'); do
     gh api -X DELETE "$R/git/refs/heads/$branch" --silent || true
   done
+  if [ -n "$FORK" ]; then
+    for branch in $(fork_gh api --paginate "repos/$FORK/branches?per_page=100" --jq '.[].name | select(. != "main")'); do
+      fork_gh api -X DELETE "repos/$FORK/git/refs/heads/$branch" --silent || true
+    done
+  fi
   for ref in $(gh api "$R/git/matching-refs/priority-boarding/" --jq '.[].ref') $(gh api "$R/git/matching-refs/e2e-resource/" --jq '.[].ref'); do
     gh api -X DELETE "$R/git/$ref" --silent || true
   done

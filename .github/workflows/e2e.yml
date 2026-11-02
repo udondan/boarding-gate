@@ -43,6 +43,7 @@ jobs:
       - name: Run scenarios
         env:
           GH_TOKEN: ${{ secrets.E2E_TOKEN }}
+          E2E_FORK_TOKEN: ${{ secrets.E2E_FORK_TOKEN }}
           REF: ${{ inputs.ref }}
           SCENARIOS: ${{ inputs.scenarios }}
         run: |
