@@ -286,16 +286,11 @@ The list of runs doesn't name the pull request of a fork's run, so it is found b
 
 Runs of forks get no secrets on `pull_request`. Only jobs that use the shared resources without secrets can run for them, like a test environment that needs no credentials. Skip the other jobs for forks. A read-only token doesn't make a runner safe for the code of a fork: on a self-hosted runner that is reused, that code can stay on the machine and read the credentials of later jobs, or reach internal services. Run forks only on GitHub-hosted runners or on isolated self-hosted runners that are used for one job and then discarded.
 
-## Limitations
+## Pull requests from Dependabot
 
-Pull requests from Dependabot get a read-only token and can't create the lock ref. The action then fails with a permission error. Skip the wait job for them instead:
+Runs of Dependabot pull requests need nothing extra. Their token is read-only by default, but the `permissions` of the wait job raise it, as for any other run. Without `contents: write` the action fails right away instead of blocking the queue.
 
-```yaml
-  priority-boarding:
-    if: github.actor != 'dependabot[bot]'
-```
-
-Jobs after it then have to treat a skipped wait as success, for example with `if: needs.priority-boarding.result == 'failure' || needs.priority-boarding.result == 'cancelled'` in the `Check turn` step.
+They only get [Dependabot secrets](https://docs.github.com/en/code-security/dependabot/troubleshooting-dependabot/troubleshooting-dependabot-on-github-actions#accessing-secrets), not the secrets of Actions. Store `update-token` and the secrets of the jobs after the wait there as well, or they are empty for these runs. Without `update-token`, a Dependabot pull request that is behind fails with `require-up-to-date` instead of being rebased.
 
 ## Testing
 
