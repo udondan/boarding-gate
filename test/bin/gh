@@ -22,7 +22,7 @@ check_fail() {
   [ -f "$FAKE_STATE/fail" ] || return 0
   while read -r code regex; do
     if [[ "$1" =~ $regex ]]; then
-      http_error "$code" "Fake failure"
+      http_error "$code" "$(cat "$FAKE_STATE/fail_message" 2>/dev/null || echo "Fake failure")"
     fi
   done <"$FAKE_STATE/fail"
 }

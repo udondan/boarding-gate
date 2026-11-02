@@ -449,9 +449,10 @@ take_turn() {
     message="$message, pull request $PR_NUMBER"
   fi
   # Without contents: write, retrying would only block the queue until the
-  # timeout. Other errors may be temporary.
+  # timeout. Other errors may be temporary, also rate limits, which can be
+  # HTTP 403 as well.
   if ! commit=$(gh api "$repo/git/commits" -f message="$message" -f tree="$tree" --jq .sha 2>&1); then
-    if [[ "$commit" == *"HTTP 403"* ]]; then
+    if [[ "$commit" == *"Resource not accessible by integration"* ]]; then
       echo "::error::Creating the lock commit failed: $commit"
       echo "::error::The token needs contents: write permission."
       exit 1

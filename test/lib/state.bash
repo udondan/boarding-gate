@@ -12,6 +12,7 @@
 #   commits/<sha>  message of a commit created through the API
 #   refs/<ref>     sha of a ref, without the refs/ prefix
 #   fail           "<http code> <regex>" lines, matching API calls fail
+#   fail_message   message of these failures, "Fake failure" if missing
 #   hook           script run before every API call with method and path
 #   ticks/<n>      script run during the nth sleep
 #   calls.log      API calls and sleeps
@@ -109,6 +110,12 @@ set_behind() {
 # "PR update-branch" matches gh pr update-branch.
 fail_api() {
   echo "$1 $2" >>"$FAKE_STATE/fail"
+}
+
+# fail_message <message>: the message of the failures of fail_api, like
+# "Resource not accessible by integration".
+fail_message() {
+  echo "$1" >"$FAKE_STATE/fail_message"
 }
 
 lock_dir() {
