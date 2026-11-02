@@ -944,6 +944,16 @@ on_behalf_of_fork_run() {
   [ "$(lock_message 1)" = "priority-boarding: run 300" ]
 }
 
+@test "run-id reads a run of a workflow file with spaces in its name" {
+  on_behalf_of_fork_run
+  export INPUT_WORKFLOW=test.yml
+  set_run 300 '.path = ".github/workflows/CI Checks.yml"'
+  run_wait
+  assert_status 0
+  assert_output_contains "Waiting for the turn on behalf of run 300 of pull request #3."
+  [ "$(count_calls '^POST statuses/head3 ')" -eq 2 ]
+}
+
 @test "run-id of a push run doesn't take the pull request of its branch" {
   export INPUT_RUN_ID=300 GITHUB_RUN_ID=900 GITHUB_EVENT_NAME=workflow_run
   export PR_NUMBER="" BASE_REF="" HEAD_SHA="" HEAD_REPO=""

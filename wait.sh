@@ -60,12 +60,14 @@ if [ -n "$run_id" ]; then
   fi
   self=$run_id
   this="Run $run_id"
-  target_query='"\(.path) \(.head_sha) \(.head_repository.full_name // ""):\(.head_branch // "") \(.event) \(.pull_requests[0].number // "-")"'
+  # The path goes last: read gives the last variable the rest of the line, so
+  # a workflow file name with spaces stays whole.
+  target_query='"\(.head_sha) \(.head_repository.full_name // ""):\(.head_branch // "") \(.event) \(.pull_requests[0].number // "-") \(.path)"'
   if ! target=$(gh api "$repo/actions/runs/$run_id" --jq "$target_query"); then
     echo "::error::Reading run $run_id failed."
     exit 1
   fi
-  read -r target_path HEAD_SHA target_head target_event target_pr <<<"$target"
+  read -r HEAD_SHA target_head target_event target_pr target_path <<<"$target"
   HEAD_REPO=${target_head%:*}
   if [ -z "${INPUT_WORKFLOW:-}" ]; then
     INPUT_WORKFLOW=${target_path##*/}

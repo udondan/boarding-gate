@@ -96,10 +96,11 @@ jobs:
     # A new commit on the branch cancels the waiting of the outdated run, so the
     # new run doesn't queue behind it. Once a run has the turn, this job is
     # done: the jobs after it that already run are never cancelled. github.*
-    # is the context of the calling workflow. Runs with run-id all run on the
-    # default branch, they are grouped by the run they wait for.
+    # is the context of the calling workflow. Grouped by pull request, not
+    # branch name: forks can have branches of the same name. Runs with run-id
+    # all run on the default branch, they are grouped by the run they wait for.
     concurrency:
-      group: priority-boarding-${{ github.workflow }}-${{ inputs.run-id || github.head_ref || github.ref }}
+      group: priority-boarding-${{ github.workflow }}-${{ inputs.run-id || github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
       - name: Priority boarding

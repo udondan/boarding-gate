@@ -63,7 +63,7 @@ jobs:
       contents: write
       pull-requests: read
     concurrency:
-      group: ${{ github.workflow }}-wait-${{ github.head_ref || github.ref }}
+      group: ${{ github.workflow }}-wait-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
       - uses: udondan/priority-boarding@v1
@@ -145,7 +145,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
 ## Workflow setup
 
-**Cancel outdated waiting runs.** A new commit on a branch makes the waiting run of the previous commit outdated. The action fails it at its next check, but until then it takes a runner. A `concurrency` group per branch with `cancel-in-progress` cancels it right away. Put the group on the wait job only, not on the workflow or the jobs after it: once a run has the turn, the wait job is done, so jobs that already use the shared resources are never cancelled and can always clean up.
+**Cancel outdated waiting runs.** A new commit on a branch makes the waiting run of the previous commit outdated. The action fails it at its next check, but until then it takes a runner. A `concurrency` group per pull request with `cancel-in-progress` cancels it right away. Group by pull request number rather than branch name (`github.head_ref`): branches of forks can have the same name. Put the group on the wait job only, not on the workflow or the jobs after it: once a run has the turn, the wait job is done, so jobs that already use the shared resources are never cancelled and can always clean up.
 
 **Fail the jobs after the wait when the wait fails.** When the wait fails, for example as outdated or on timeout, jobs that need it are skipped, and a skipped job counts as passed for required checks. Run them with `if: ${{ !cancelled() }}` and fail them in a first step when the wait didn't succeed, as in the example above. Or require a single job that checks all others:
 
