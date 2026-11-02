@@ -73,11 +73,12 @@ if [ -n "$run_id" ]; then
     INPUT_WORKFLOW=${target_path##*/}
   fi
   # The pull request the run tests: the one the run names, otherwise for a
-  # pull_request run the one of its head repository and branch, which stay the
-  # same when the pull request gets new commits. The run of a fork doesn't name
-  # it. Empty for a run without a pull request, or when the branch has several.
+  # pull_request or pull_request_target run the one of its head repository and
+  # branch, which stay the same when the pull request gets new commits. The run
+  # of a fork doesn't name it. Empty for a run without a pull request, or when
+  # the branch has several.
   [ "$target_pr" != "-" ] || target_pr=""
-  if [ -n "$target_pr" ] || [ "$target_event" != "pull_request" ] || [ -z "$HEAD_REPO" ]; then target_head=""; fi
+  if [ -n "$target_pr" ] || ! [[ "$target_event" =~ ^pull_request(_target)?$ ]] || [ -z "$HEAD_REPO" ]; then target_head=""; fi
   if ! target_prs=$(gh api --paginate "$repo/pulls?state=open&per_page=100" --jq '.[] | "\(.head.repo.full_name // ""):\(.head.ref) \(.number) \(.base.ref) \(.head.sha)"'); then
     echo "::error::Listing pull requests failed."
     exit 1
@@ -494,13 +495,14 @@ prs_url="$repo/pulls?state=open&per_page=100"
 prs_query='.[] | {number, labels: [.labels[].name], auto_merge: (.auto_merge != null),
   sha: .head.sha, base: .base.ref, head_repo: (.head.repo.full_name // ""),
   head: "\(.head.repo.full_name // ""):\(.head.ref)"}'
-# Runs of pull requests from forks have no pull requests in the runs list. They
-# are matched to the open pull request by head repository and branch, so runs
+# Runs of pull requests from forks have no pull requests in the runs list. Their
+# pull_request and pull_request_target runs are matched to the open pull
+# request by head repository and branch, so runs
 # of older commits still belong to it. A branch with several open pull
 # requests, to different base branches, matches none: its runs don't say which.
 # shellcheck disable=SC2016 # jq variables
 match_query='($prs | map(select(.head_repo != "")) | group_by(.head) | map(select(length == 1) | .[0] | {key: .head, value: .number}) | from_entries) as $by_head
-  | map(if .pr == null and .event == "pull_request" then .pr = $by_head[.head] else . end)'
+  | map(if .pr == null and (.event == "pull_request" or .event == "pull_request_target") then .pr = $by_head[.head] else . end)'
 # A run of a pull request that has a newer run is left out: its commit is
 # outdated, and it may still be active although it will never take the turn,
 # for example while other jobs finish after it failed as outdated. This run

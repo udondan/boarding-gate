@@ -804,6 +804,26 @@ on_behalf_of_fork_run() {
   assert_locks ""
 }
 
+@test "a pull_request_target run of a pull request from a fork gets the weight of its pull request" {
+  export INPUT_LABEL_WEIGHTS="prio=5"
+  add_pr 3 prio
+  fork_run 300 3 00:15
+  set_run 300 '.event = "pull_request_target"'
+  stop_at_tick 1
+  run_wait
+  assert_status 99
+  assert_output_contains "runs/300 (weight 5)"
+}
+
+@test "run-id takes the turn on behalf of a pull_request_target run from a fork" {
+  on_behalf_of_fork_run
+  set_run 300 '.event = "pull_request_target"'
+  run_wait
+  assert_status 0
+  assert_output_contains "Waiting for the turn on behalf of run 300 of pull request #3."
+  [ "$(lock_message 1)" = "priority-boarding: run 300, pull request 3" ]
+}
+
 @test "a run from a fork fails when its pull request has a newer run of another commit" {
   this_run_is_fork
   set_pr 1 '.head.sha = "head1new"'
