@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.11.0](https://github.com/udondan/priority-boarding/compare/v1.10.1...v1.11.0) (2026-11-02)
+
+
+### Features
+
+* let pull requests from forks take part in the queue ([#44](https://github.com/udondan/priority-boarding/issues/44)) ([1e39c57](https://github.com/udondan/priority-boarding/commit/1e39c57e561e52dca0876d601e1759d688d1a343))
+
+
+### Bug Fixes
+
+* fail at once without contents: write and support Dependabot pull requests ([#46](https://github.com/udondan/priority-boarding/issues/46)) ([80168be](https://github.com/udondan/priority-boarding/commit/80168be50cfff37eb6b56ddc9b40886d93561844))
+* keep the commit status of a fork's run when workflow_run starts again for its later jobs ([#50](https://github.com/udondan/priority-boarding/issues/50)) ([8b57e0f](https://github.com/udondan/priority-boarding/commit/8b57e0fdb4c21813f11331b3a7e93fb7d3e4ff65))
+* support pull_request_target workflows ([#47](https://github.com/udondan/priority-boarding/issues/47)) ([9245cf0](https://github.com/udondan/priority-boarding/commit/9245cf0c3ba16c3c5f7517ffcbf72f92752293a7))
+
+
+### Dependencies
+
+* **deps:** update jdx/mise-action action to v5 ([#48](https://github.com/udondan/priority-boarding/issues/48)) ([7a25ab0](https://github.com/udondan/priority-boarding/commit/7a25ab08b93e0b115a1d0b5004e16197db0b76e8))
+
 ## [1.10.1](https://github.com/udondan/priority-boarding/compare/v1.10.0...v1.10.1) (2026-11-01)
 
 
