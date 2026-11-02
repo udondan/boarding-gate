@@ -23,14 +23,21 @@ The run that is next in line checks every `poll-interval-seconds`, the other wai
 
 Active runs are read from the unfiltered run list. The `status` filter of the GitHub API is backed by a search index that can be stale and miss active runs (see [softprops/turnstyle#165](https://github.com/softprops/turnstyle/issues/165)).
 
-Each waiting run repeats these steps until it has the turn:
+Each waiting run, and each `workflow_run` run with `run-id` that waits in the place of a fork's run (see [forks](#pull-requests-from-forks)), repeats these steps until the turn is taken:
 
 ```mermaid
 flowchart TD
-    start([Run starts]) --> poll[List active runs and lock refs]
-    poll --> own{Newest lock ref created by this run?}
-    own -- "yes (re-run)" --> done([Has the turn, next jobs run])
-    own -- no --> newer{"PR has a newer run of another commit?"}
+    start([Run starts]) --> runid{"run-id given? (workflow_run for a fork)"}
+    runid -- no --> poll
+    runid -- yes --> target[Read that run and its pull request]
+    target --> targetold{"Run tests an outdated commit of its PR?"}
+    targetold -- yes --> nothing([End: nothing to do])
+    targetold -- no --> poll
+    poll[List active runs and lock refs] --> own{Newest lock ref names this run?}
+    own -- "yes (re-run, or taken on its behalf)" --> done([Has the turn, next jobs run])
+    own -- no --> ended{"With run-id: has that run ended?"}
+    ended -- yes --> nothing
+    ended -- no --> newer{"PR has a newer run of another commit?"}
     newer -- yes --> stale([Fail: commit is outdated])
     newer -- no --> active{Holder run still active?}
     active -- yes --> held[Turn held]
@@ -42,9 +49,16 @@ flowchart TD
     uptodate -- no --> outdated(["Fail: branch is behind (rebased first with update-token)"])
     uptodate -- yes --> queue["Order waiting runs by label weight, then start time, leaving out runs of PRs with a newer run"]
     queue --> first{Turn free and this run first?}
-    first -- yes --> take[Create lock ref n+1]
+    first -- yes --> yield{"Auto-merge PR with a higher weight about to be tested? (up to yield-to-pending-minutes)"}
+    yield -- no --> readonly{"Read-only? (pull_request from a fork)"}
+    readonly -- no --> take[Create lock ref n+1]
     take -- created --> done
     take -- "already exists" --> poll
+    take -- "no contents: write" --> noperm(["Fail: token can't write"])
+    readonly -- yes --> handoff{"Turn free for 5 minutes without a run taking it on its behalf?"}
+    handoff -- yes --> nohandoff([Fail: no workflow_run run took the turn])
+    handoff -- no --> timeout
+    yield -- yes --> timeout
     first -- no --> timeout{timeout-minutes reached?}
     timeout -- yes --> timedout([Fail: timed out])
     timeout -- no --> sleep["Sleep poll-interval-seconds if first in line or the turn is free, else queued-poll-interval-seconds"]
