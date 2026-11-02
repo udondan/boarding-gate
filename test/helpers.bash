@@ -16,6 +16,7 @@ setup() {
   export GH_TOKEN=token
   export GITHUB_REPOSITORY=owner/repo
   export GITHUB_RUN_ID=100
+  export GITHUB_EVENT_NAME=pull_request
   export GITHUB_SHA=merge1
   export GITHUB_SERVER_URL=https://github.com
   export GITHUB_WORKFLOW_REF="owner/repo/.github/workflows/test.yml@refs/pull/1/merge"
@@ -34,6 +35,8 @@ setup() {
   export HEAD_SHA=head1
   export HEAD_REPO=owner/repo
   export UPDATE_TOKEN=""
+  export INPUT_RUN_ID=""
+  export INPUT_READ_ONLY=auto
 
   # shellcheck source=test/lib/state.bash
   source "$FAKE_LIB/state.bash"

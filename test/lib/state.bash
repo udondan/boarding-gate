@@ -38,7 +38,8 @@ new_commit() {
 }
 
 # add_run <id> [pr] [started hh:mm] [status] [conclusion] [head sha]
-# The head sha defaults to the pull request's head sha.
+# The head sha defaults to the pull request's head sha. The event is
+# pull_request with a pull request, push without.
 add_run() {
   local id=$1 pr=${2:-} started=${3:-00:00} status=${4:-in_progress} conclusion=${5:-} head=${6:-}
   [ -n "$head" ] || head=head${pr:-$id}
@@ -46,9 +47,24 @@ add_run() {
     --arg status "$status" --arg conclusion "$conclusion" --arg head "$head" '
     . + [{id: $id, status: $status,
       conclusion: (if $conclusion == "" then null else $conclusion end),
+      event: (if $pr == "" then "push" else "pull_request" end),
+      path: ".github/workflows/test.yml", head_repository: {full_name: "owner/repo"},
       head_sha: $head, run_started_at: "2026-01-01T\($started):00Z",
       html_url: "https://github.com/owner/repo/actions/runs/\($id)",
       pull_requests: (if $pr == "" then [] else [{number: ($pr | tonumber)}] end)}]'
+}
+
+# set_run <id> <jq expression applied to the run>
+set_run() {
+  json_edit runs.json --argjson id "$1" "map(if .id == \$id then ($2) else . end)"
+}
+
+# fork_run <id> <pr> [started hh:mm]: a pull_request run of pull request <pr>
+# from a fork. The runs list doesn't name its pull request.
+fork_run() {
+  add_run "$1" "" "${3:-00:00}" in_progress "" "head$2"
+  set_run "$1" '.event = "pull_request" | .head_repository.full_name = "someone/repo"'
+  set_pr "$2" '.head.repo.full_name = "someone/repo"'
 }
 
 # complete_run <id> [conclusion]

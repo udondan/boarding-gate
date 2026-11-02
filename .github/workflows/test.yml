@@ -82,9 +82,9 @@ jobs:
 
   # Calls the reusable workflow of this commit as other repositories do, so a
   # broken change of it or of the action fails here before it is released.
-  # Pull requests from forks get no write permissions and can't take the turn.
+  # Runs of pull requests from forks get a read-only token and wait for
+  # priority-boarding-forks.yml to take the turn on their behalf.
   priority-boarding:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       actions: read
       contents: write # lock refs under refs/priority-boarding/

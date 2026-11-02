@@ -7,3 +7,6 @@ paths:
   .github/workflows/test.yml:
     ignore:
       - 'reusable workflow call "\$/\.github/workflows/priority-boarding\.yml"'
+  .github/workflows/priority-boarding-forks.yml:
+    ignore:
+      - 'reusable workflow call "\$/\.github/workflows/priority-boarding\.yml"'

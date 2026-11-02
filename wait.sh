@@ -34,7 +34,48 @@
 # The status filter of the list-runs API (?status=in_progress) is backed by a
 # search index that can be stale and return no runs although runs are active.
 # The unfiltered list is correct, so active runs are filtered client-side.
+#
+# A run of a pull request from a fork gets a read-only token and can't create
+# lock refs. It waits like any other run, but when it is first in line and the
+# turn is free, it waits for another run to take the turn on its behalf: the
+# turn belongs to the run named in the lock commit, whoever created it. That
+# other run is started by a workflow_run event, which has a writable token, and
+# is given the id of the fork run with run-id. It waits as if it were that run,
+# from the same queue, and ends once the turn is taken or the fork run ended.
+# The run ids of the runs list don't name the pull request of a fork run, so
+# runs are matched to pull requests by head commit.
 set -euo pipefail
+
+repo="repos/$GITHUB_REPOSITORY"
+
+# The run that waits for the turn: this run, or the run given with run-id.
+self="$GITHUB_RUN_ID"
+run_id="${INPUT_RUN_ID:-}"
+this="This run"
+if [ -n "$run_id" ]; then
+  if ! [[ "$run_id" =~ ^[1-9][0-9]*$ ]]; then
+    echo "::error::Invalid run-id: $run_id. Expected a workflow run id."
+    exit 1
+  fi
+  self=$run_id
+  this="Run $run_id"
+  if ! target=$(gh api "$repo/actions/runs/$run_id" --jq '"\(.path) \(.head_sha) \(.head_repository.full_name // "")"'); then
+    echo "::error::Reading run $run_id failed."
+    exit 1
+  fi
+  read -r target_path HEAD_SHA HEAD_REPO <<<"$target"
+  if [ -z "${INPUT_WORKFLOW:-}" ]; then
+    INPUT_WORKFLOW=${target_path##*/}
+  fi
+  # The pull request the run tests, by its head commit. The run of a fork
+  # doesn't name it. Empty for a run without a pull request.
+  if ! target_prs=$(gh api --paginate "$repo/pulls?state=open&per_page=100" --jq '.[] | "\(.head.sha) \(.number) \(.base.ref)"'); then
+    echo "::error::Listing pull requests failed."
+    exit 1
+  fi
+  read -r PR_NUMBER BASE_REF <<<"$(awk -v sha="$HEAD_SHA" '$1 == sha { print $2, $3; exit }' <<<"$target_prs")"
+  echo "Waiting for the turn on behalf of run $run_id${PR_NUMBER:+ of pull request #$PR_NUMBER}."
+fi
 
 workflow="${INPUT_WORKFLOW:-}"
 if [ -z "$workflow" ]; then
@@ -58,8 +99,29 @@ if ! [[ "$no_pr_weight" =~ ^-?(0|[1-9][0-9]*)$ ]]; then
   echo "::error::Invalid no-pull-request-weight: $no_pr_weight. Expected an integer."
   exit 1
 fi
-repo="repos/$GITHUB_REPOSITORY"
 lock_prefix="priority-boarding/$workflow"
+
+# read-only: wait for another run to take the turn on behalf of this run, see
+# above. "auto" for pull_request runs of forks, whose token is read-only.
+read_only="${INPUT_READ_ONLY:-auto}"
+if ! [[ "$read_only" =~ ^(auto|true|false)$ ]]; then
+  echo "::error::Invalid read-only: $read_only. Expected auto, true or false."
+  exit 1
+fi
+if [ "$read_only" = "auto" ]; then
+  read_only=false
+  if [ -z "$run_id" ] && [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && [ -n "${HEAD_REPO:-}" ] && [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+    read_only=true
+  fi
+fi
+if [ "$read_only" = "true" ] && [ -n "$run_id" ]; then
+  echo "::error::read-only and run-id can't be combined: a run with run-id takes the turn for another run."
+  exit 1
+fi
+# Minutes a read-only run that is first in line waits for another run to take
+# the turn on its behalf, before it fails.
+handoff_minutes=5
+handoff_deadline=0
 
 if [ "$require_up_to_date" = "true" ] && { [ -z "${BASE_REF:-}" ] || [ -z "${HEAD_SHA:-}" ]; }; then
   echo "::notice::require-up-to-date only applies to pull_request events, skipping the check."
@@ -76,9 +138,14 @@ weights=$(printf '%s\n' "${INPUT_LABEL_WEIGHTS:-}" | jq -R -s '
 # Commit status that shows the place in the queue, visible live in the pull
 # request's checks. The log of a composite action is not shown live. Set on the
 # pull request's head commit, not the merge commit.
+# A read-only run can't set it, the run taking the turn for it does.
 status_context="${INPUT_STATUS_CONTEXT:-}"
+if [ "$read_only" = "true" ]; then
+  status_context=""
+  echo "The token is read-only: this run waits for the turn, and another run takes it on its behalf when it is first in line."
+fi
 status_sha="${HEAD_SHA:-$GITHUB_SHA}"
-status_url="${GITHUB_SERVER_URL:-https://github.com}/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+status_url="${GITHUB_SERVER_URL:-https://github.com}/$GITHUB_REPOSITORY/actions/runs/$self"
 last_status=""
 status_final=false
 fail_state=failure
@@ -357,7 +424,7 @@ take_turn() {
   if [ -z "$tree" ]; then
     tree=$(gh api "$repo/git/commits/$GITHUB_SHA" --jq .tree.sha) || return 1
   fi
-  local message="priority-boarding: run $GITHUB_RUN_ID"
+  local message="priority-boarding: run $self"
   if [ -n "${PR_NUMBER:-}" ]; then
     message="$message, pull request $PR_NUMBER"
   fi
@@ -390,10 +457,15 @@ take_turn() {
 
 runs_url="$repo/actions/workflows/$workflow/runs?per_page=100"
 runs_query='[.workflow_runs[] | select(.status != "completed")
-  | {id, run_started_at, html_url, head_sha, pr: (.pull_requests[0].number // null)}]'
+  | {id, event, run_started_at, html_url, head_sha, pr: (.pull_requests[0].number // null)}]'
 prs_url="$repo/pulls?state=open&per_page=100"
 prs_query='.[] | {number, labels: [.labels[].name], auto_merge: (.auto_merge != null),
   sha: .head.sha, base: .base.ref, head_repo: (.head.repo.full_name // "")}'
+# Runs of pull requests from forks have no pull requests in the runs list. They
+# are matched to the open pull request with their head commit.
+# shellcheck disable=SC2016 # jq variables
+match_query='($prs | map({key: .sha, value: .number}) | from_entries) as $by_sha
+  | map(if .pr == null and .event == "pull_request" then .pr = $by_sha[.head_sha] else . end)'
 # A run of a pull request that has a newer run is left out: its commit is
 # outdated, and it may still be active although it will never take the turn,
 # for example while other jobs finish after it failed as outdated. This run
@@ -408,7 +480,7 @@ queue_query='
     | select(.id == $self or .pr == null or $newest[.pr | tostring] == .id)
     | . + {weight: (if .pr == null then $nopr else ($pw[.pr | tostring] // 0) end)})
   | sort_by(-.weight, .run_started_at, .id)'
-queue_args=(--argjson w "$weights" --argjson self "$GITHUB_RUN_ID" --argjson nopr "$no_pr_weight")
+queue_args=(--argjson w "$weights" --argjson self "$self" --argjson nopr "$no_pr_weight")
 prs='[]'
 next_refresh=0
 last_state=""
@@ -429,7 +501,7 @@ check_newer_run() {
   if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
     return 0
   fi
-  newer=$(echo "$active" | jq -r --argjson pr "$PR_NUMBER" --argjson self "$GITHUB_RUN_ID" --arg sha "$HEAD_SHA" "$newer_query")
+  newer=$(echo "$active" | jq -r --argjson pr "$PR_NUMBER" --argjson self "$self" --arg sha "$HEAD_SHA" "$newer_query")
   [ -n "$newer" ] || return 0
   fail_description="Outdated, a newer commit of #$PR_NUMBER is tested."
   echo "::error::A newer commit of pull request #$PR_NUMBER is tested in $newer. This commit is outdated."
@@ -444,6 +516,19 @@ took_turn() {
   fi
   set_status success "$description"
   status_final=true
+}
+
+# Fails a read-only run that is first in line while the turn is free, when no
+# run took the turn on its behalf within handoff_minutes. It would hold up all
+# runs behind it.
+wait_for_handoff() {
+  if [ "$handoff_deadline" -eq 0 ]; then
+    handoff_deadline=$((SECONDS + handoff_minutes * 60))
+    return 0
+  fi
+  [ "$SECONDS" -ge "$handoff_deadline" ] || return 0
+  echo "::error::No run took the turn on behalf of this run within $handoff_minutes minutes. Runs with a read-only token, like pull requests from forks, need the workflow_run workflow described in the README of priority-boarding."
+  exit 1
 }
 
 set_status pending "Waiting for the turn."
@@ -461,13 +546,18 @@ while true; do
       read -r newest sha <<<"$(echo "$locks" | tail -n 1)"
       read_holder "$sha"
     fi
-    if [ "$holder" = "$GITHUB_RUN_ID" ]; then
+    if [ "$holder" = "$self" ]; then
       # A re-run of the holder keeps the turn.
-      echo "This run already has the turn."
+      echo "$this already has the turn."
       took_turn
       break
     fi
-    check_newer_run
+    if [ -n "$run_id" ] && ! is_active "$self"; then
+      set_status error "Run ended before it took the turn."
+      status_final=true
+      echo "Run $self ended before it took the turn, nothing left to do."
+      exit 0
+    fi
     free=true
     held="Turn held by run $holder."
     # Short form of held for the commit status.
@@ -495,14 +585,25 @@ while true; do
       fi
       next_refresh=$((SECONDS + queued_interval))
     fi
+    active=$(echo "$active" | jq --argjson prs "$prs" "$match_query")
+    check_newer_run
 
     queue=$(jq -n "${queue_args[@]}" --argjson runs "$active" --argjson prs "$prs" --arg holder "$holder" "$queue_query")
-    position=$(echo "$queue" | jq --argjson id "$GITHUB_RUN_ID" 'map(.id) | index($id) // -1')
+    position=$(echo "$queue" | jq --argjson id "$self" 'map(.id) | index($id) // -1')
 
     if [ "$free" = "true" ] && [ "$position" = "0" ] && yielding "$(echo "$queue" | jq '.[0].weight')"; then
       free=false
       held="Letting pull requests with a higher weight go first, they are about to be tested: $pending."
       held_status="Letting $pending go first."
+    fi
+
+    if [ "$free" = "true" ] && [ "$position" = "0" ] && [ "$read_only" = "true" ]; then
+      check_up_to_date strict
+      wait_for_handoff
+      free=false
+      held="The turn is free, waiting for another run to take it on behalf of this run."
+    else
+      handoff_deadline=0
     fi
 
     if [ "$free" = "true" ] && [ "$position" = "0" ]; then
@@ -523,7 +624,7 @@ while true; do
       sleep_for=$interval
     fi
     if [ "$position" = "-1" ]; then
-      state="This run is not in the list of active runs yet."
+      state="$this is not in the list of active runs yet."
       status_description=$state
     else
       state=$(echo "$queue" | jq -r --argjson pos "$position" '

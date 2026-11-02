@@ -1,0 +1,29 @@
+---
+# Takes the turn on behalf of runs of the Test workflow for pull requests from
+# forks. Their token is read-only, so they can't create the lock refs: they
+# wait, and this run takes the turn for them when they are first in line.
+#
+# workflow_run runs the workflow of the default branch with a writable token,
+# whatever the pull request changes. It never checks out the code of the pull
+# request and only passes on the run id. in_progress, unlike requested, is also
+# sent for re-runs and after a run of a first-time contributor was approved.
+name: Priority boarding for forks
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] no code of the pull request is run
+    workflows: [Test]
+    types: [in_progress]
+
+permissions: {}
+
+jobs:
+  priority-boarding:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name != github.repository
+    permissions:
+      actions: read
+      contents: write # lock refs under refs/priority-boarding/
+      pull-requests: read # labels for label-weights
+      statuses: write # queue position as commit status of the fork run
+    uses: $/.github/workflows/priority-boarding.yml
+    with:
+      run-id: ${{ format('{0}', github.event.workflow_run.id) }}

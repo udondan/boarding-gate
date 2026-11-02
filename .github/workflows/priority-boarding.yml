@@ -69,6 +69,14 @@ on:
         description: Context of a commit status showing the place in the queue. Empty disables it.
         type: string
         default: priority-boarding
+      read-only:
+        description: Wait for another run to take the turn on behalf of this run. auto does this for pull requests from forks.
+        type: string
+        default: auto
+      run-id:
+        description: Id of another run to wait for the turn on behalf of, usually github.event.workflow_run.id. Empty waits for this run.
+        type: string
+        default: ''
     secrets:
       update-token:
         description: Token to rebase a pull request branch that is behind. Without it, such a run only fails.
@@ -88,9 +96,10 @@ jobs:
     # A new commit on the branch cancels the waiting of the outdated run, so the
     # new run doesn't queue behind it. Once a run has the turn, this job is
     # done: the jobs after it that already run are never cancelled. github.*
-    # is the context of the calling workflow.
+    # is the context of the calling workflow. Runs with run-id all run on the
+    # default branch, they are grouped by the run they wait for.
     concurrency:
-      group: priority-boarding-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+      group: priority-boarding-${{ github.workflow }}-${{ inputs.run-id || github.head_ref || github.ref }}
       cancel-in-progress: true
     steps:
       - name: Priority boarding
@@ -107,5 +116,7 @@ jobs:
           yield-to-pending-minutes: ${{ inputs.yield-to-pending-minutes }}
           update-pending-branches: ${{ inputs.update-pending-branches }}
           status-context: ${{ inputs.status-context }}
+          read-only: ${{ inputs.read-only }}
+          run-id: ${{ inputs.run-id }}
           update-token: ${{ secrets.update-token }}
           token: ${{ secrets.token || github.token }}
