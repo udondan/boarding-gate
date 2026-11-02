@@ -294,6 +294,32 @@ jobs:
 
 It starts when the run of the fork starts, waits in that run's place in the queue, takes the turn for it and ends. It also ends when the run of the fork ends first, for example when it is cancelled, or when it tests an outdated commit of its pull request. GitHub sends `in_progress` again when later jobs of that run start: those runs find the turn already taken, or the run ended, and end without changing the commit status. It never checks out the code of the pull request, so the writable token is not exposed to it. Pass it the same inputs as the waiting job, like `label-weights` and `require-up-to-date`, so both see the same queue. The commit status of the fork's run is set by this run, since the fork's run can't set it.
 
+```mermaid
+sequenceDiagram
+    participant F as Run of the fork (read-only token)
+    participant G as GitHub
+    participant C as workflow_run run (run-id)
+    participant L as Lock refs
+    F->>G: Run starts
+    G->>C: workflow_run, in_progress
+    C->>G: Read the fork's run and its pull request
+    par Both wait in the place of the fork's run
+        F->>L: Check lock refs and queue
+    and
+        C->>L: Check lock refs and queue
+        C->>G: Commit status: position in the queue
+    end
+    Note over F,L: First in line, the turn is free
+    C->>L: Create lock ref n+1 naming the fork's run
+    C->>G: Commit status: took the turn
+    Note over C: Ends
+    F->>L: Newest lock ref names this run
+    Note over F: Has the turn, next jobs run
+    G->>C: in_progress again when a later job starts
+    C->>L: Turn already taken
+    Note over C: Ends, commit status unchanged
+```
+
 The run of the fork detects that it is from a fork (`read-only: auto`). It fails when no run took the turn on its behalf within 5 minutes after it was first in line and the turn was free, so a missing `workflow_run` workflow doesn't hold up the queue for long. `in_progress` is also sent for re-runs and when the run of a first-time contributor was approved, unlike `requested`. Branches of forks are never rebased, see [Outdated branches](#outdated-branches).
 
 The list of runs doesn't name the pull request of a fork's run, so it is found by the fork and branch. When one branch of a fork has open pull requests to several base branches, its runs count as runs without a pull request, since they don't say which one they test.
