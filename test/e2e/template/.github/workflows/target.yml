@@ -1,0 +1,55 @@
+# The pipeline on pull_request_target: the base branch's workflow with a
+# writable token, also for pull requests from forks, so their runs take the
+# turn themselves. Its queue and resource are separate from pipeline.yml. Only
+# runs while the variable TARGET is true.
+name: Target
+
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] no code of the pull request is run
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  priority-boarding:
+    if: vars.TARGET == 'true'
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: read
+      statuses: write
+    uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@__ACTION_REF__ # zizmor: ignore[unpinned-uses] the ref under test
+    with:
+      label-weights: ${{ vars.LABEL_WEIGHTS }}
+      no-pull-request-weight: ${{ fromJSON(vars.NO_PR_WEIGHT || '-100') }}
+      poll-interval-seconds: ${{ fromJSON(vars.POLL || '10') }}
+      queued-poll-interval-seconds: ${{ fromJSON(vars.QUEUED_POLL || '30') }}
+      timeout-minutes: ${{ fromJSON(vars.TIMEOUT || '60') }}
+      require-up-to-date: ${{ vars.REQUIRE_UP_TO_DATE != 'false' }}
+      merge-wait-minutes: ${{ fromJSON(vars.MERGE_WAIT || '10') }}
+      yield-to-pending-minutes: ${{ fromJSON(vars.YIELD || '10') }}
+      status-context: priority-boarding-target
+
+  deploy:
+    needs: priority-boarding
+    if: ${{ !cancelled() && vars.TARGET == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check turn
+        if: needs.priority-boarding.result != 'success'
+        run: exit 1
+
+      # The base branch, never the code of the pull request.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Use resource
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SECONDS_TO_USE: ${{ vars.DEPLOY_SECONDS || '60' }}
+        run: exec bash scripts/use-resource.sh target "$SECONDS_TO_USE"
