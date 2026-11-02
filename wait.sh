@@ -43,7 +43,8 @@
 # is given the id of the fork run with run-id. It waits as if it were that run,
 # from the same queue, and ends once the turn is taken or the fork run ended.
 # The run ids of the runs list don't name the pull request of a fork run, so
-# runs are matched to pull requests by head commit.
+# runs are matched to pull requests by head repository and branch. A read-only
+# run never writes, not even with update-token.
 set -euo pipefail
 
 repo="repos/$GITHUB_REPOSITORY"
@@ -59,21 +60,27 @@ if [ -n "$run_id" ]; then
   fi
   self=$run_id
   this="Run $run_id"
-  if ! target=$(gh api "$repo/actions/runs/$run_id" --jq '"\(.path) \(.head_sha) \(.head_repository.full_name // "")"'); then
+  if ! target=$(gh api "$repo/actions/runs/$run_id" --jq '"\(.path) \(.head_sha) \(.head_repository.full_name // ""):\(.head_branch // "")"'); then
     echo "::error::Reading run $run_id failed."
     exit 1
   fi
-  read -r target_path HEAD_SHA HEAD_REPO <<<"$target"
+  read -r target_path HEAD_SHA target_head <<<"$target"
+  HEAD_REPO=${target_head%:*}
   if [ -z "${INPUT_WORKFLOW:-}" ]; then
     INPUT_WORKFLOW=${target_path##*/}
   fi
-  # The pull request the run tests, by its head commit. The run of a fork
-  # doesn't name it. Empty for a run without a pull request.
-  if ! target_prs=$(gh api --paginate "$repo/pulls?state=open&per_page=100" --jq '.[] | "\(.head.sha) \(.number) \(.base.ref)"'); then
+  # The pull request the run tests, by head repository and branch, which stay
+  # the same when the pull request gets new commits. The run of a fork doesn't
+  # name it. Empty for a run without a pull request.
+  if ! target_prs=$(gh api --paginate "$repo/pulls?state=open&per_page=100" --jq '.[] | "\(.head.repo.full_name // ""):\(.head.ref) \(.number) \(.base.ref) \(.head.sha)"'); then
     echo "::error::Listing pull requests failed."
     exit 1
   fi
-  read -r PR_NUMBER BASE_REF <<<"$(awk -v sha="$HEAD_SHA" '$1 == sha { print $2, $3; exit }' <<<"$target_prs")"
+  read -r PR_NUMBER BASE_REF pr_head_sha <<<"$(awk -v head="$target_head" 'head !~ /^:/ && $1 == head { print $2, $3, $4; exit }' <<<"$target_prs")"
+  if [ -n "$PR_NUMBER" ] && [ "$pr_head_sha" != "$HEAD_SHA" ]; then
+    echo "Run $run_id tests an outdated commit of pull request #$PR_NUMBER, nothing to do."
+    exit 0
+  fi
   echo "Waiting for the turn on behalf of run $run_id${PR_NUMBER:+ of pull request #$PR_NUMBER}."
 fi
 
@@ -117,6 +124,11 @@ fi
 if [ "$read_only" = "true" ] && [ -n "$run_id" ]; then
   echo "::error::read-only and run-id can't be combined: a run with run-id takes the turn for another run."
   exit 1
+fi
+# A read-only run writes nothing, not even with update-token.
+if [ "$read_only" = "true" ]; then
+  UPDATE_TOKEN=""
+  update_pending=false
 fi
 # Minutes a read-only run that is first in line waits for another run to take
 # the turn on its behalf, before it fails.
@@ -457,15 +469,18 @@ take_turn() {
 
 runs_url="$repo/actions/workflows/$workflow/runs?per_page=100"
 runs_query='[.workflow_runs[] | select(.status != "completed")
-  | {id, event, run_started_at, html_url, head_sha, pr: (.pull_requests[0].number // null)}]'
+  | {id, event, run_started_at, html_url, head_sha, pr: (.pull_requests[0].number // null),
+     head: "\(.head_repository.full_name // ""):\(.head_branch // "")"}]'
 prs_url="$repo/pulls?state=open&per_page=100"
 prs_query='.[] | {number, labels: [.labels[].name], auto_merge: (.auto_merge != null),
-  sha: .head.sha, base: .base.ref, head_repo: (.head.repo.full_name // "")}'
+  sha: .head.sha, base: .base.ref, head_repo: (.head.repo.full_name // ""),
+  head: "\(.head.repo.full_name // ""):\(.head.ref)"}'
 # Runs of pull requests from forks have no pull requests in the runs list. They
-# are matched to the open pull request with their head commit.
+# are matched to the open pull request by head repository and branch, so runs
+# of older commits still belong to it.
 # shellcheck disable=SC2016 # jq variables
-match_query='($prs | map({key: .sha, value: .number}) | from_entries) as $by_sha
-  | map(if .pr == null and .event == "pull_request" then .pr = $by_sha[.head_sha] else . end)'
+match_query='($prs | map(select(.head_repo != "")) | map({key: .head, value: .number}) | from_entries) as $by_head
+  | map(if .pr == null and .event == "pull_request" then .pr = $by_head[.head] else . end)'
 # A run of a pull request that has a newer run is left out: its commit is
 # outdated, and it may still be active although it will never take the turn,
 # for example while other jobs finish after it failed as outdated. This run

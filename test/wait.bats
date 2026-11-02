@@ -612,8 +612,9 @@ holder_succeeded() {
 }
 
 @test "update-token doesn't touch branches of forks" {
-  export INPUT_REQUIRE_UP_TO_DATE=true UPDATE_TOKEN=update HEAD_REPO=someone/repo
-  set_behind head1 3
+  on_behalf_of_fork_run
+  export INPUT_REQUIRE_UP_TO_DATE=true UPDATE_TOKEN=update
+  set_behind head3 3
   run_wait
   assert_status 1
   assert_output_contains "::notice::The branch is in another repository and can't be updated."
@@ -774,11 +775,44 @@ on_behalf_of_fork_run() {
 @test "a run from a fork fails when its pull request has a newer run of another commit" {
   this_run_is_fork
   set_pr 1 '.head.sha = "head1new"'
-  add_run 300 "" 00:15 in_progress "" head1new
-  set_run 300 '.event = "pull_request"'
+  fork_run 300 1 00:15 head1new
   run_wait
   assert_status 1
   assert_output_contains "::error::A newer commit of pull request #1 is tested in https://github.com/owner/repo/actions/runs/300."
+}
+
+@test "an older run from a fork is left out when its pull request has a newer run" {
+  set_run 100 '.run_started_at = "2026-01-01T00:20:00Z"'
+  add_pr 3
+  set_pr 3 '.head.sha = "head3new"'
+  fork_run 300 3 00:05 head3
+  fork_run 301 3 00:10 head3new
+  stop_at_tick 1
+  run_wait
+  assert_status 99
+  assert_output_contains "Position 2 of 2"
+  refute_output_contains "runs/300"
+}
+
+@test "a run from a fork isn't matched to a pull request of the same branch name in another repository" {
+  export INPUT_LABEL_WEIGHTS="prio=5"
+  add_pr 3 prio
+  fork_run 300 3 00:15
+  set_run 300 '.head_repository.full_name = "other/repo"'
+  set_run 100 '.run_started_at = "2026-01-01T00:20:00Z"'
+  stop_at_tick 1
+  run_wait
+  assert_status 99
+  assert_output_contains "runs/300 (weight 0)"
+}
+
+@test "read-only doesn't rebase with update-token" {
+  export INPUT_READ_ONLY=true INPUT_REQUIRE_UP_TO_DATE=true INPUT_UPDATE_PENDING=true UPDATE_TOKEN=update
+  set_behind head1 3
+  run_wait
+  assert_status 1
+  assert_output_contains "::error::Branch is 3 commit(s) behind main."
+  [ "$(count_calls '^PR ')" -eq 0 ]
 }
 
 @test "a run from a fork waits for another run to take the turn on its behalf" {
@@ -846,6 +880,16 @@ on_behalf_of_fork_run() {
   # The commit status of the fork run's commit, linked to the fork run.
   [ "$(count_calls '^POST statuses/head3 .*actions/runs/300$')" -eq 2 ]
   assert_last_commit_status "success|Took the turn."
+}
+
+@test "run-id ends when the run it waits for tests an outdated commit" {
+  on_behalf_of_fork_run
+  set_pr 3 '.head.sha = "head3new"'
+  run_wait
+  assert_status 0
+  assert_output_contains "Run 300 tests an outdated commit of pull request #3, nothing to do."
+  assert_locks ""
+  [ "$(count_calls '^POST ')" -eq 0 ]
 }
 
 @test "run-id waits in the place of the run it waits for" {

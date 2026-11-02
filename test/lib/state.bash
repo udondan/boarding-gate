@@ -49,6 +49,7 @@ add_run() {
       conclusion: (if $conclusion == "" then null else $conclusion end),
       event: (if $pr == "" then "push" else "pull_request" end),
       path: ".github/workflows/test.yml", head_repository: {full_name: "owner/repo"},
+      head_branch: "branch\(if $pr == "" then $id else $pr end)",
       head_sha: $head, run_started_at: "2026-01-01T\($started):00Z",
       html_url: "https://github.com/owner/repo/actions/runs/\($id)",
       pull_requests: (if $pr == "" then [] else [{number: ($pr | tonumber)}] end)}]'
@@ -59,11 +60,12 @@ set_run() {
   json_edit runs.json --argjson id "$1" "map(if .id == \$id then ($2) else . end)"
 }
 
-# fork_run <id> <pr> [started hh:mm]: a pull_request run of pull request <pr>
-# from a fork. The runs list doesn't name its pull request.
+# fork_run <id> <pr> [started hh:mm] [head sha]: a pull_request run of pull
+# request <pr> from a fork, of its branch branch<pr>. The runs list doesn't name
+# its pull request.
 fork_run() {
-  add_run "$1" "" "${3:-00:00}" in_progress "" "head$2"
-  set_run "$1" '.event = "pull_request" | .head_repository.full_name = "someone/repo"'
+  add_run "$1" "" "${3:-00:00}" in_progress "" "${4:-head$2}"
+  set_run "$1" ".event = \"pull_request\" | .head_repository.full_name = \"someone/repo\" | .head_branch = \"branch$2\""
   set_pr "$2" '.head.repo.full_name = "someone/repo"'
 }
 
@@ -80,7 +82,7 @@ add_pr() {
     . + [{number: $n, state: "open",
       labels: ($labels | split(",") | map(select(. != "") | {name: .})),
       auto_merge: (if $auto then {merge_method: "squash"} else null end),
-      head: {sha: "head\($n)", repo: {full_name: "owner/repo"}}, base: {ref: "main"},
+      head: {sha: "head\($n)", ref: "branch\($n)", repo: {full_name: "owner/repo"}}, base: {ref: "main"},
       mergeable_state: "clean"}]'
 }
 

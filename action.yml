@@ -96,7 +96,8 @@ inputs:
       run, see run-id. Fails when that doesn't happen within 5 minutes after
       this run is first in line and the turn is free. "auto" does this for
       pull_request runs of pull requests from forks, whose token is read-only.
-      One of auto, true, false.
+      Such a run writes nothing, update-token is not used. One of auto, true,
+      false.
     required: false
     default: auto
   run-id:
