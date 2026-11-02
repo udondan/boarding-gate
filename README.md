@@ -284,7 +284,7 @@ The run of the fork detects that it is from a fork (`read-only: auto`). It fails
 
 The list of runs doesn't name the pull request of a fork's run, so it is found by the fork and branch. When one branch of a fork has open pull requests to several base branches, its runs count as runs without a pull request, since they don't say which one they test.
 
-Runs of forks get no secrets on `pull_request`. Only jobs that use the shared resources without secrets can run for them, like a self-hosted runner or a test environment that needs no credentials. Skip the other jobs for forks.
+Runs of forks get no secrets on `pull_request`. Only jobs that use the shared resources without secrets can run for them, like a test environment that needs no credentials. Skip the other jobs for forks. A read-only token doesn't make a runner safe for the code of a fork: on a self-hosted runner that is reused, that code can stay on the machine and read the credentials of later jobs, or reach internal services. Run forks only on GitHub-hosted runners or on isolated self-hosted runners that are used for one job and then discarded.
 
 ## Limitations
 
