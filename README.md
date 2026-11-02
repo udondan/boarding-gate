@@ -282,6 +282,8 @@ It starts when the run of the fork starts, waits in that run's place in the queu
 
 The run of the fork detects that it is from a fork (`read-only: auto`). It fails when no run took the turn on its behalf within 5 minutes after it was first in line and the turn was free, so a missing `workflow_run` workflow doesn't hold up the queue for long. `in_progress` is also sent for re-runs and when the run of a first-time contributor was approved, unlike `requested`. Branches of forks are never rebased, see [Outdated branches](#outdated-branches).
 
+The list of runs doesn't name the pull request of a fork's run, so it is found by the fork and branch. When one branch of a fork has open pull requests to several base branches, its runs count as runs without a pull request, since they don't say which one they test.
+
 Runs of forks get no secrets on `pull_request`. Only jobs that use the shared resources without secrets can run for them, like a self-hosted runner or a test environment that needs no credentials. Skip the other jobs for forks.
 
 ## Limitations

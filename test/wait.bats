@@ -806,6 +806,19 @@ on_behalf_of_fork_run() {
   assert_output_contains "runs/300 (weight 0)"
 }
 
+@test "a run from a fork branch with several open pull requests counts as without a pull request" {
+  export INPUT_LABEL_WEIGHTS="prio=5"
+  add_pr 3 prio
+  add_pr 4 prio
+  fork_run 300 3 00:15
+  set_pr 4 '.head = {sha: "head3", ref: "branch3", repo: {full_name: "someone/repo"}} | .base.ref = "release"'
+  set_run 100 '.run_started_at = "2026-01-01T00:20:00Z"'
+  stop_at_tick 1
+  run_wait
+  assert_status 99
+  assert_output_contains "runs/300 (weight 0)"
+}
+
 @test "read-only doesn't rebase with update-token" {
   export INPUT_READ_ONLY=true INPUT_REQUIRE_UP_TO_DATE=true INPUT_UPDATE_PENDING=true UPDATE_TOKEN=update
   set_behind head1 3
@@ -928,6 +941,37 @@ on_behalf_of_fork_run() {
   add_run 300 "" 00:05
   run_wait
   assert_status 0
+  [ "$(lock_message 1)" = "priority-boarding: run 300" ]
+}
+
+@test "run-id of a push run doesn't take the pull request of its branch" {
+  export INPUT_RUN_ID=300 GITHUB_RUN_ID=900 GITHUB_EVENT_NAME=workflow_run
+  export PR_NUMBER="" BASE_REF="" HEAD_SHA="" HEAD_REPO=""
+  add_run 300 "" 00:05
+  add_pr 3
+  set_pr 3 '.head.ref = "branch300" | .head.sha = "head300"'
+  run_wait
+  assert_status 0
+  [ "$(lock_message 1)" = "priority-boarding: run 300" ]
+}
+
+@test "run-id of a run that names its pull request" {
+  export INPUT_RUN_ID=300 GITHUB_RUN_ID=900 GITHUB_EVENT_NAME=workflow_run
+  export PR_NUMBER="" BASE_REF="" HEAD_SHA="" HEAD_REPO=""
+  add_pr 3
+  add_run 300 3 00:05
+  run_wait
+  assert_status 0
+  [ "$(lock_message 1)" = "priority-boarding: run 300, pull request 3" ]
+}
+
+@test "run-id of a fork branch with several open pull requests takes the turn without a pull request" {
+  on_behalf_of_fork_run
+  add_pr 4
+  set_pr 4 '.head = {sha: "head3", ref: "branch3", repo: {full_name: "someone/repo"}} | .base.ref = "release"'
+  run_wait
+  assert_status 0
+  assert_output_contains "Waiting for the turn on behalf of run 300."
   [ "$(lock_message 1)" = "priority-boarding: run 300" ]
 }
 

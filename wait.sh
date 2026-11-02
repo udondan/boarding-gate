@@ -60,23 +60,29 @@ if [ -n "$run_id" ]; then
   fi
   self=$run_id
   this="Run $run_id"
-  if ! target=$(gh api "$repo/actions/runs/$run_id" --jq '"\(.path) \(.head_sha) \(.head_repository.full_name // ""):\(.head_branch // "")"'); then
+  target_query='"\(.path) \(.head_sha) \(.head_repository.full_name // ""):\(.head_branch // "") \(.event) \(.pull_requests[0].number // "-")"'
+  if ! target=$(gh api "$repo/actions/runs/$run_id" --jq "$target_query"); then
     echo "::error::Reading run $run_id failed."
     exit 1
   fi
-  read -r target_path HEAD_SHA target_head <<<"$target"
+  read -r target_path HEAD_SHA target_head target_event target_pr <<<"$target"
   HEAD_REPO=${target_head%:*}
   if [ -z "${INPUT_WORKFLOW:-}" ]; then
     INPUT_WORKFLOW=${target_path##*/}
   fi
-  # The pull request the run tests, by head repository and branch, which stay
-  # the same when the pull request gets new commits. The run of a fork doesn't
-  # name it. Empty for a run without a pull request.
+  # The pull request the run tests: the one the run names, otherwise for a
+  # pull_request run the one of its head repository and branch, which stay the
+  # same when the pull request gets new commits. The run of a fork doesn't name
+  # it. Empty for a run without a pull request, or when the branch has several.
+  [ "$target_pr" != "-" ] || target_pr=""
+  if [ -n "$target_pr" ] || [ "$target_event" != "pull_request" ] || [ -z "$HEAD_REPO" ]; then target_head=""; fi
   if ! target_prs=$(gh api --paginate "$repo/pulls?state=open&per_page=100" --jq '.[] | "\(.head.repo.full_name // ""):\(.head.ref) \(.number) \(.base.ref) \(.head.sha)"'); then
     echo "::error::Listing pull requests failed."
     exit 1
   fi
-  read -r PR_NUMBER BASE_REF pr_head_sha <<<"$(awk -v head="$target_head" 'head !~ /^:/ && $1 == head { print $2, $3, $4; exit }' <<<"$target_prs")"
+  # shellcheck disable=SC2016 # awk variables
+  target_match='($2 == pr || $1 == head) { n++; found = $2 " " $3 " " $4 } END { if (n == 1) print found }'
+  read -r PR_NUMBER BASE_REF pr_head_sha <<<"$(awk -v pr="$target_pr" -v head="$target_head" "$target_match" <<<"$target_prs")"
   if [ -n "$PR_NUMBER" ] && [ "$pr_head_sha" != "$HEAD_SHA" ]; then
     echo "Run $run_id tests an outdated commit of pull request #$PR_NUMBER, nothing to do."
     exit 0
@@ -477,9 +483,10 @@ prs_query='.[] | {number, labels: [.labels[].name], auto_merge: (.auto_merge != 
   head: "\(.head.repo.full_name // ""):\(.head.ref)"}'
 # Runs of pull requests from forks have no pull requests in the runs list. They
 # are matched to the open pull request by head repository and branch, so runs
-# of older commits still belong to it.
+# of older commits still belong to it. A branch with several open pull
+# requests, to different base branches, matches none: its runs don't say which.
 # shellcheck disable=SC2016 # jq variables
-match_query='($prs | map(select(.head_repo != "")) | map({key: .head, value: .number}) | from_entries) as $by_head
+match_query='($prs | map(select(.head_repo != "")) | group_by(.head) | map(select(length == 1) | .[0] | {key: .head, value: .number}) | from_entries) as $by_head
   | map(if .pr == null and .event == "pull_request" then .pr = $by_head[.head] else . end)'
 # A run of a pull request that has a newer run is left out: its commit is
 # outdated, and it may still be active although it will never take the turn,
