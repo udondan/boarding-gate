@@ -21,7 +21,7 @@ Waiting runs are ordered by weight (highest first), then by start time. A re-run
 
 The run that is next in line checks every `poll-interval-seconds`, the other waiting runs every `queued-poll-interval-seconds`. This keeps the API requests low when many runs are waiting. While the turn is free, all waiting runs check every `poll-interval-seconds`, so the next run takes the turn quickly when the first one never does. Labels are read while waiting, so labelling a pull request moves its waiting run in the queue.
 
-Active runs are read from the unfiltered run list. The `status` filter of the GitHub API is backed by a search index that can be stale and miss active runs (see [softprops/turnstyle#165](https://github.com/softprops/turnstyle/issues/165)).
+Active runs are read from the unfiltered run list. The `status` filter of the GitHub API is backed by a search index that can be stale and miss active runs.
 
 Each waiting run, and each `workflow_run` run with `run-id` that waits in the place of a fork's run (see [forks](#pull-requests-from-forks)), repeats these steps until the turn is taken:
 
