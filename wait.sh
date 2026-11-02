@@ -568,7 +568,14 @@ wait_for_handoff() {
   exit 1
 }
 
-set_status pending "Waiting for the turn."
+# workflow_run sends in_progress again when later jobs of a run start, after
+# a run with run-id took the turn for it. Such a run finds the turn already
+# taken, it only sets the first status once it has to wait.
+waiting=false
+if [ -z "$run_id" ]; then
+  set_status pending "Waiting for the turn."
+  waiting=true
+fi
 
 while true; do
   sleep_for=$queued_interval
@@ -586,14 +593,22 @@ while true; do
     if [ "$holder" = "$self" ]; then
       # A re-run of the holder keeps the turn.
       echo "$this already has the turn."
-      took_turn
+      if [ "$waiting" = "true" ]; then
+        took_turn
+      fi
       break
     fi
     if [ -n "$run_id" ] && ! is_active "$self"; then
-      set_status error "Run ended before it took the turn."
+      if [ "$waiting" = "true" ]; then
+        set_status error "Run ended before it took the turn."
+      fi
       status_final=true
       echo "Run $self ended before it took the turn, nothing left to do."
       exit 0
+    fi
+    if [ "$waiting" = "false" ]; then
+      set_status pending "Waiting for the turn."
+      waiting=true
     fi
     free=true
     held="Turn held by run $holder."

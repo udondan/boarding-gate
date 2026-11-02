@@ -41,7 +41,10 @@ expect_turn_order "$holder" "$fork" "$a"
 expect_status "$fork" '^pending Position 1 of 2 \(weight 10\)\. Turn held by #[0-9]+\.$'
 expect_status "$a" '^pending Position 2 of 2 \(weight 0\)'
 expect_jq fork-final-status "the run of #$fork in pipeline.yml ended with status success" --arg pr "$fork" '[.runs[] | select(.workflow == "pipeline.yml" and (.pr | tostring) == $pr) | .statuses | last | .state] == ["success"]'
-expect_jq companion "a run of forks.yml took the turn for the fork's run" '[.runs[] | select(.workflow == "forks.yml" and .wait_conclusion == "success")] | length == 1'
+expect_jq companion "a run of forks.yml took the turn for the fork's run" '[.runs[] | select(.workflow == "forks.yml" and .wait_conclusion == "success")] | length >= 1'
+# workflow_run sends in_progress again as the later jobs of the fork's run
+# start. Those runs of forks.yml find the turn taken and leave the status alone.
+expect_jq fork-status-stays "the status of #$fork stayed success once it took the turn" --arg pr "$fork" '[.runs[] | select(.workflow == "pipeline.yml" and (.pr | tostring) == $pr) | .statuses | map(.state) | last == "success" and (map(select(. == "success")) | length) == 1] == [true]'
 expect_jq target-turns "the turns of target.yml went to #$holder, #$fork, #$a" --arg h "$holder" --arg f "$fork" --arg a "$a" '[.turns[] | select(.workflow == "target.yml") | .pr | tostring] == [$h, $f, $a]'
 expect_jq target-fork-status "the run of #$fork in target.yml ended with status success" --arg pr "$fork" '[.runs[] | select(.workflow == "target.yml" and (.pr | tostring) == $pr) | .statuses | last | .state] == ["success"]'
 scenario_end

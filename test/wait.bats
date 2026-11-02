@@ -974,6 +974,18 @@ on_behalf_of_fork_run() {
   assert_status 0
   assert_output_contains "Run 300 already has the turn."
   assert_locks 1
+  # Started again for a later job of run 300: the status stays as it is.
+  [ ! -s "$FAKE_STATE/statuses.log" ]
+}
+
+@test "run-id leaves the status alone when the run it waits for ended before it started" {
+  on_behalf_of_fork_run
+  holder_running
+  complete_run 300
+  run_wait
+  assert_status 0
+  assert_output_contains "Run 300 ended before it took the turn, nothing left to do."
+  [ ! -s "$FAKE_STATE/statuses.log" ]
 }
 
 @test "run-id ends when the run it waits for ends" {
