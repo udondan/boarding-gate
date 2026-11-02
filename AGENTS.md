@@ -39,7 +39,7 @@ Tests run the real `wait.sh` against a file-backed fake GitHub API:
 
 ## Releases
 
-release-please (`release-type: simple`) builds CHANGELOG.md and tags from conventional commits on main; the workflow then moves the major tag (`v1`) that users reference. PRs are squash-merged and the PR title must be a conventional commit (checked by `pr-conventional-title.yml`), since it becomes the commit release-please reads.
+release-please (`release-type: simple`) builds CHANGELOG.md and tags from conventional commits on main; the workflow then moves the major tag (`v1`) that users reference. Every Monday `automerge-schedule.yml` rebases the open release PR and turns on auto-merge, so releases go out weekly without manual steps. PRs are squash-merged and the PR title must be a conventional commit (checked by `pr-conventional-title.yml`), since it becomes the commit release-please reads.
 
 ## End-to-end tests
 
