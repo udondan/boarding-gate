@@ -448,7 +448,17 @@ take_turn() {
   if [ -n "${PR_NUMBER:-}" ]; then
     message="$message, pull request $PR_NUMBER"
   fi
-  commit=$(gh api "$repo/git/commits" -f message="$message" -f tree="$tree" --jq .sha) || return 1
+  # Without contents: write, retrying would only block the queue until the
+  # timeout. Other errors may be temporary.
+  if ! commit=$(gh api "$repo/git/commits" -f message="$message" -f tree="$tree" --jq .sha 2>&1); then
+    if [[ "$commit" == *"HTTP 403"* ]]; then
+      echo "::error::Creating the lock commit failed: $commit"
+      echo "::error::The token needs contents: write permission."
+      exit 1
+    fi
+    echo "Creating the lock commit failed: $commit"
+    return 1
+  fi
   if ! out=$(gh api "$repo/git/refs" -f ref="refs/$lock_prefix/$n" -f sha="$commit" --silent 2>&1); then
     if [[ "$out" == *"HTTP 422"* ]]; then
       return 1
