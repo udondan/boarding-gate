@@ -11,7 +11,7 @@
 [![Coverage](https://codecov.io/gh/udondan/boarding-gate/graph/badge.svg)](https://codecov.io/gh/udondan/boarding-gate)
 [![License](https://img.shields.io/github/license/udondan/boarding-gate)](LICENSE)
 
-GitHub Action that queues the runs of a workflow so only one run at a time uses shared resources (test stacks, environments), without cancelling pending runs the way a `concurrency` group does. Runs are ordered by the labels of their pull requests, so for example your own pull requests are tested before dependency updates, and release pull requests last. See [Alternatives](#alternatives) for when merge queue fits better.
+GitHub Action that queues the runs of a workflow so only one run at a time uses shared resources (test stacks, environments), without cancelling pending runs the way a `concurrency` group does by default. Runs are ordered by the labels of their pull requests, so for example your own pull requests are tested before dependency updates, and release pull requests last. See [Alternatives](#alternatives) for when merge queue fits better.
 
 ## How it works
 
@@ -177,7 +177,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
 ## Priorities
 
-A run's weight is the sum of the weights of its pull request's labels. Runs of pull requests without matching labels have weight 0. Runs without a pull request, for example of a push to main, have the weight `no-pull-request-weight`, 0 by default. Negative weights move runs to the back of the queue, positive weights to the front. With the example above, unlabelled pull requests are tested first, then Renovate updates (configure Renovate with `"labels": ["renovate"]`), and release-please pull requests (labelled `autorelease: pending`) last. A label like `urgent=10` lets you move a single pull request to the front, also while it is waiting. The [reusable workflow](#reusable-workflow) has it by default.
+A run's weight is the sum of the weights of its pull request's labels. Runs of pull requests without matching labels have weight 0. Runs without a pull request, for example of a push to main, have the weight `no-pull-request-weight`, 0 by default. Negative weights move runs to the back of the queue, positive weights to the front. With the example above, unlabelled pull requests are tested first, then Renovate updates (configure Renovate with `"labels": ["renovate"]`; Dependabot labels its pull requests `dependencies` by default, so add `dependencies=-5`), and release-please pull requests (labelled `autorelease: pending`) last. A label like `urgent=10` lets you move a single pull request to the front, also while it is waiting. The [reusable workflow](#reusable-workflow) has it by default.
 
 To test main as well, but only after the pull requests, give runs without a pull request the lowest weight:
 
@@ -257,9 +257,10 @@ The token needs `statuses: write`. Without it, the action logs a warning and wai
 
 ## Alternatives
 
-- **`concurrency` groups** run one run at a time, but keep only one pending run. A newer pending run cancels the older one, so pull requests that wait at the same time are not all tested. There is no order by priority.
+- **`concurrency` groups** run one run at a time. By default they keep only one pending run: a newer pending run cancels the older one, so pull requests that wait at the same time are not all tested. With `queue: max`, up to 100 runs wait, but first come, first served. There is no order by priority, no check for branches that are behind, and no handling of auto-merge.
 - **[Merge queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)** solves outdated branches at the source: it tests each pull request together with the ones ahead of it and merges it itself, so nothing has to be rebased or waited for after a merge. Combined with a `concurrency` group on the `merge_group` workflow, it also tests one pull request at a time. It is only available for repositories owned by organizations and orders pull requests by the time they were added (or moved to the front by hand), not by labels. If you can use it, prefer it over `require-up-to-date`, `merge-wait-minutes` and `yield-to-pending-minutes`.
-- **Other queue actions**, like [softprops/turnstyle](https://github.com/softprops/turnstyle) or [ben-z/gh-action-mutex](https://github.com/ben-z/gh-action-mutex), run one run at a time, first come, first served.
+- **Other queue actions**, like [softprops/turnstyle](https://github.com/softprops/turnstyle), [ahmadnassri/action-workflow-queue](https://github.com/ahmadnassri/action-workflow-queue) or [ben-z/gh-action-mutex](https://github.com/ben-z/gh-action-mutex), run one run at a time, first come, first served.
+- **Merge queue services** like Mergify, Trunk, Aviator, Graphite or Kodiak order pull requests by priority, but they are hosted services, and they order merges, not the runs of a workflow.
 
 This action is for repositories without merge queue, for example ones owned by a user, where runs share resources and some pull requests should go first. It adds the order by labels and the handling of outdated branches and auto-merge.
 
