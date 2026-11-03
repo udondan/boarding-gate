@@ -86,6 +86,7 @@ jobs:
           label-weights: |
             autorelease: pending=-10
             renovate=-5
+            dependencies=-5
 
   deploy:
     needs: boarding-gate
@@ -125,13 +126,13 @@ It runs the action with a `concurrency` group that cancels outdated waiting runs
 
 The inputs are the [inputs](#inputs) of the action, with the secrets `update-token` and `token`. Some defaults differ from the action's, to match the setup this README recommends:
 
-| Name                     | Default of the workflow                                   |
-| ------------------------ | --------------------------------------------------------- |
-| `label-weights`          | `urgent=10`, `autorelease: pending=-10` and `renovate=-5` |
-| `no-pull-request-weight` | `-100`                                                    |
-| `timeout-minutes`        | `180`                                                     |
-| `require-up-to-date`     | `true`                                                    |
-| `status-context`         | `boarding-gate`                                       |
+| Name                     | Default of the workflow                                                      |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `label-weights`          | `urgent=10`, `autorelease: pending=-10`, `renovate=-5` and `dependencies=-5` |
+| `no-pull-request-weight` | `-100`                                                                       |
+| `timeout-minutes`        | `180`                                                                        |
+| `require-up-to-date`     | `true`                                                                       |
+| `status-context`         | `boarding-gate`                                                              |
 
 With these weights, label a pull request `urgent` to move its run to the front of the queue, also while it is waiting. Create the label in your repository first. Your own `label-weights` replace the defaults, so add `urgent=10` to them to keep it.
 
@@ -177,7 +178,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
 ## Priorities
 
-A run's weight is the sum of the weights of its pull request's labels. Runs of pull requests without matching labels have weight 0. Runs without a pull request, for example of a push to main, have the weight `no-pull-request-weight`, 0 by default. Negative weights move runs to the back of the queue, positive weights to the front. With the example above, unlabelled pull requests are tested first, then Renovate updates (configure Renovate with `"labels": ["renovate"]`), and release-please pull requests (labelled `autorelease: pending`) last. A label like `urgent=10` lets you move a single pull request to the front, also while it is waiting. The [reusable workflow](#reusable-workflow) has it by default.
+A run's weight is the sum of the weights of its pull request's labels. Runs of pull requests without matching labels have weight 0. Runs without a pull request, for example of a push to main, have the weight `no-pull-request-weight`, 0 by default. Negative weights move runs to the back of the queue, positive weights to the front. With the example above, unlabelled pull requests are tested first, then dependency updates (Dependabot labels its pull requests `dependencies` by default, configure Renovate with `"labels": ["renovate"]`; the weights of several labels add up, so give a pull request only one of the two), and release-please pull requests (labelled `autorelease: pending`) last. A label like `urgent=10` lets you move a single pull request to the front, also while it is waiting. The [reusable workflow](#reusable-workflow) has it by default.
 
 To test main as well, but only after the pull requests, give runs without a pull request the lowest weight:
 
@@ -194,6 +195,7 @@ on:
           label-weights: |
             autorelease: pending=-10
             renovate=-5
+            dependencies=-5
           no-pull-request-weight: -100
 ```
 

@@ -33,6 +33,7 @@ on:
           urgent=10
           autorelease: pending=-10
           renovate=-5
+          dependencies=-5
       no-pull-request-weight:
         description: Weight of runs without a pull request, for example of a push to main.
         type: number
