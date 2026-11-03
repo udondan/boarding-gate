@@ -5,7 +5,7 @@
 #
 # Takes the resource by creating ref refs/e2e-resource/<resource>, holds it for
 # <seconds>, then deletes the ref. Creating a ref that exists fails with HTTP
-# 422: another run uses the resource at the same time, so priority-boarding let two
+# 422: another run uses the resource at the same time, so boarding-gate let two
 # runs in. That is recorded as ref refs/e2e-resource/overlap-<run id>, which the
 # e2e analyzer looks for, and fails the job.
 #

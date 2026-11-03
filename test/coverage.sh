@@ -6,5 +6,5 @@
 # up and bashcov stops parsing. So tracing is switched off for bats here and
 # run_wait (test/helpers.bash) switches it back on for wait.sh only.
 set +x
-export PRIORITY_BOARDING_COVERAGE=1
+export BOARDING_GATE_COVERAGE=1
 exec env -u SHELLOPTS bats "$(dirname "$0")" "$@"

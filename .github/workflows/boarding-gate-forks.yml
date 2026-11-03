@@ -7,7 +7,7 @@
 # whatever the pull request changes. It never checks out the code of the pull
 # request and only passes on the run id. in_progress, unlike requested, is also
 # sent for re-runs and after a run of a first-time contributor was approved.
-name: Priority boarding for forks
+name: Boarding gate for forks
 
 on:
   workflow_run: # zizmor: ignore[dangerous-triggers] no code of the pull request is run
@@ -17,13 +17,13 @@ on:
 permissions: {}
 
 jobs:
-  priority-boarding:
+  boarding-gate:
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name != github.repository
     permissions:
       actions: read
-      contents: write # lock refs under refs/priority-boarding/
+      contents: write # lock refs under refs/boarding-gate/
       pull-requests: read # labels for label-weights
       statuses: write # queue position as commit status of the fork run
-    uses: $/.github/workflows/priority-boarding.yml
+    uses: $/.github/workflows/boarding-gate.yml
     with:
       run-id: ${{ format('{0}', github.event.workflow_run.id) }}

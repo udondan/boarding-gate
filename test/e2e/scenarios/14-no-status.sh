@@ -16,7 +16,7 @@ wait_settled 900
 scenario_finish
 
 expect_jq nostatus-turns "both pull requests took the turn of nostatus.yml" --arg a "$a" --arg b "$b" '[.turns[] | select(.workflow == "nostatus.yml") | .pr | tostring] == [$a, $b]'
-expect_jq no-statuses "no status priority-boarding-nostatus was set" '[.runs[].statuses[] | select(.context == "priority-boarding-nostatus")] | length == 0'
-expect_annotation "$a" '^warning Setting commit status priority-boarding-nostatus failed'
+expect_jq no-statuses "no status boarding-gate-nostatus was set" '[.runs[].statuses[] | select(.context == "boarding-gate-nostatus")] | length == 0'
+expect_annotation "$a" '^warning Setting commit status boarding-gate-nostatus failed'
 expect_turn_order "$a" "$b"
 scenario_end

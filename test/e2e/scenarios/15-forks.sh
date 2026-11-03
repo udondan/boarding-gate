@@ -28,7 +28,7 @@ fork=$(fork_pr fork)
 add_label "$fork" urgent
 
 wait_until "#$fork waits first in line" 300 fork_status_matches "$fork" '^pending Position 1 of 2 \(weight 10\)'
-STATUS_CONTEXT=priority-boarding-target wait_until "#$fork waits first in line for target.yml" 300 fork_status_matches "$fork" '^pending Position 1 of 2 \(weight 10\)'
+STATUS_CONTEXT=boarding-gate-target wait_until "#$fork waits first in line for target.yml" 300 fork_status_matches "$fork" '^pending Position 1 of 2 \(weight 10\)'
 wait_settled 1200
 scenario_finish
 

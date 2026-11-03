@@ -3,13 +3,13 @@
 # plus the job settings an action can't set, like the concurrency group that
 # cancels outdated waiting runs. Call it as a job:
 #
-#   priority-boarding:
+#   boarding-gate:
 #     permissions:
 #       actions: read
 #       contents: write
 #       pull-requests: read
 #       statuses: write
-#     uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@v1
+#     uses: udondan/boarding-gate/.github/workflows/boarding-gate.yml@v1
 #
 # It only runs when called, never on events of this repository. The inputs are
 # the inputs of the action. Some defaults differ from the action's, see
@@ -17,7 +17,7 @@
 #
 # `uses: $/` runs the action of this repository at the commit of this file, so
 # workflow and action never differ, whatever ref the caller uses.
-name: Priority boarding
+name: Boarding gate
 
 on:
   workflow_call:
@@ -68,7 +68,7 @@ on:
       status-context:
         description: Context of a commit status showing the place in the queue. Empty disables it.
         type: string
-        default: priority-boarding
+        default: boarding-gate
       read-only:
         description: Wait for another run to take the turn on behalf of this run. auto does this for pull requests from forks.
         type: string
@@ -90,8 +90,8 @@ on:
 # (labels) and, with status-context, statuses: write.
 
 jobs:
-  priority-boarding:
-    name: Priority boarding
+  boarding-gate:
+    name: Boarding gate
     runs-on: ubuntu-latest
     # A new commit on the branch cancels the waiting of the outdated run, so the
     # new run doesn't queue behind it. Once a run has the turn, this job is
@@ -100,10 +100,10 @@ jobs:
     # branch name: forks can have branches of the same name. Runs with run-id
     # all run on the default branch, they are grouped by the run they wait for.
     concurrency:
-      group: priority-boarding-${{ github.workflow }}-${{ inputs.run-id || github.event.pull_request.number || github.ref }}
+      group: boarding-gate-${{ github.workflow }}-${{ inputs.run-id || github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
-      - name: Priority boarding
+      - name: Boarding gate
         uses: $/
         with:
           workflow: ${{ inputs.workflow }}

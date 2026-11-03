@@ -1,12 +1,12 @@
 # actionlint doesn't know the self-repository syntax `uses: $/...` yet, which
 # runs an action or workflow of this repository at the running commit.
 paths:
-  .github/workflows/priority-boarding.yml:
+  .github/workflows/boarding-gate.yml:
     ignore:
       - 'specifying action "\$/" in invalid format'
   .github/workflows/test.yml:
     ignore:
-      - 'reusable workflow call "\$/\.github/workflows/priority-boarding\.yml"'
-  .github/workflows/priority-boarding-forks.yml:
+      - 'reusable workflow call "\$/\.github/workflows/boarding-gate\.yml"'
+  .github/workflows/boarding-gate-forks.yml:
     ignore:
-      - 'reusable workflow call "\$/\.github/workflows/priority-boarding\.yml"'
+      - 'reusable workflow call "\$/\.github/workflows/boarding-gate\.yml"'

@@ -5,7 +5,7 @@
 # shellcheck disable=SC2016 # jq variables in single quotes
 set -euo pipefail
 
-E2E_REPO=${E2E_REPO:-udondan/priority-boarding-e2e}
+E2E_REPO=${E2E_REPO:-udondan/boarding-gate-e2e}
 E2E_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 R="repos/$E2E_REPO"
 WORKFLOW=pipeline.yml
@@ -122,7 +122,7 @@ open_pr() {
     SKIP_CI=true put_file "$branch" "$EXTRA_FILE" "e2e" "chore: add $EXTRA_FILE [skip ci]" >/dev/null
   fi
   bump_file "$branch" "$path" >/dev/null
-  url=$(gh pr create -R "$E2E_REPO" --head "$branch" --base main --title "$title" --body "priority-boarding e2e" "${args[@]}")
+  url=$(gh pr create -R "$E2E_REPO" --head "$branch" --base main --title "$title" --body "boarding-gate e2e" "${args[@]}")
   log "opened #${url##*/} ($title${*:+, $*})"
   echo "${url##*/}"
 }
@@ -177,7 +177,7 @@ fork_pr() {
   fork_gh api "repos/$FORK/git/refs" -f ref="refs/heads/$branch" -f sha="$(main_sha)" --silent
   content=$(printf '%s %s' "$RANDOM" "$(date -u +%FT%TZ)" | base64 | tr -d '\n')
   fork_gh api -X PUT "repos/$FORK/contents/notes/$1.txt" -f message="feat: $1" -f branch="$branch" -f content="$content" --silent
-  url=$(fork_gh pr create -R "$E2E_REPO" --head "$FORK_OWNER:$branch" --base main --title "feat: $1" --body "priority-boarding e2e")
+  url=$(fork_gh pr create -R "$E2E_REPO" --head "$FORK_OWNER:$branch" --base main --title "feat: $1" --body "boarding-gate e2e")
   log "opened #${url##*/} (feat: $1, from $FORK)"
   echo "${url##*/}"
 }
@@ -200,16 +200,16 @@ fork_status_matches() {
 # Newest lock ref of the pipeline: "<run id> <pull request>".
 holder() {
   local sha
-  sha=$(gh api "$R/git/matching-refs/priority-boarding/$WORKFLOW/" --jq 'map(.ref | split("/") | last | tonumber) as $n | .[] | select((.ref | split("/") | last | tonumber) == ($n | max)) | .object.sha')
+  sha=$(gh api "$R/git/matching-refs/boarding-gate/$WORKFLOW/" --jq 'map(.ref | split("/") | last | tonumber) as $n | .[] | select((.ref | split("/") | last | tonumber) == ($n | max)) | .object.sha')
   [ -n "$sha" ] || return 0
   gh api "$R/git/commits/$sha" --jq '.message | [capture("run (?<id>[0-9]+)").id, (capture("pull request (?<pr>[0-9]+)").pr // "")] | join(" ")'
 }
 holder_pr() { holder | cut -s -d ' ' -f 2; }
 
 # Latest status of the pull request's head commit with the context
-# STATUS_CONTEXT (default priority-boarding): "<state> <description>".
+# STATUS_CONTEXT (default boarding-gate): "<state> <description>".
 pr_status() {
-  gh api "$R/commits/$(head_sha "$1")/statuses" --jq "[.[] | select(.context == \"${STATUS_CONTEXT:-priority-boarding}\")][0] // empty | \"\\(.state) \\(.description)\""
+  gh api "$R/commits/$(head_sha "$1")/statuses" --jq "[.[] | select(.context == \"${STATUS_CONTEXT:-boarding-gate}\")][0] // empty | \"\\(.state) \\(.description)\""
 }
 
 # Newest run of the pipeline for the pull request's head commit.
@@ -306,7 +306,7 @@ reset() {
       fork_gh api -X DELETE "repos/$FORK/git/refs/heads/$branch" --silent || true
     done
   fi
-  for ref in $(gh api "$R/git/matching-refs/priority-boarding/" --jq '.[].ref') $(gh api "$R/git/matching-refs/e2e-resource/" --jq '.[].ref'); do
+  for ref in $(gh api "$R/git/matching-refs/boarding-gate/" --jq '.[].ref') $(gh api "$R/git/matching-refs/e2e-resource/" --jq '.[].ref'); do
     gh api -X DELETE "$R/git/$ref" --silent || true
   done
   configure "${DEFAULT_VARS[@]}" "LABEL_WEIGHTS=$DEFAULT_LABEL_WEIGHTS"
@@ -377,7 +377,7 @@ expect_turn_pattern() {
   check turn-order "$(echo "$actual" | grep -Eqx "$1" && echo true || echo false)" "expected /$1/, got $actual"
 }
 
-# expect_status <pr> <regex>: a priority-boarding status of one of the pull
+# expect_status <pr> <regex>: a boarding-gate status of one of the pull
 # request's runs had a "<state> <description>" matching the regex.
 expect_status() {
   local ok

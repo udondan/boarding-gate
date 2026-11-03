@@ -2,7 +2,7 @@
 # Waits for the turn of this run among the active runs of the same workflow.
 #
 # The turn is held by the run that created the newest lock ref
-# refs/priority-boarding/<workflow>/<n>. It is released when that run completes.
+# refs/boarding-gate/<workflow>/<n>. It is released when that run completes.
 # The next run takes the turn by creating ref <n+1>. Creating a ref fails if it
 # already exists, so only one run can take the turn.
 #
@@ -115,7 +115,7 @@ if ! [[ "$no_pr_weight" =~ ^-?(0|[1-9][0-9]*)$ ]]; then
   echo "::error::Invalid no-pull-request-weight: $no_pr_weight. Expected an integer."
   exit 1
 fi
-lock_prefix="priority-boarding/$workflow"
+lock_prefix="boarding-gate/$workflow"
 
 # read-only: wait for another run to take the turn on behalf of this run, see
 # above. "auto" for pull_request runs of forks, whose token is read-only.
@@ -445,7 +445,7 @@ take_turn() {
   if [ -z "$tree" ]; then
     tree=$(gh api "$repo/git/commits/$GITHUB_SHA" --jq .tree.sha) || return 1
   fi
-  local message="priority-boarding: run $self"
+  local message="boarding-gate: run $self"
   if [ -n "${PR_NUMBER:-}" ]; then
     message="$message, pull request $PR_NUMBER"
   fi
@@ -564,7 +564,7 @@ wait_for_handoff() {
     return 0
   fi
   [ "$SECONDS" -ge "$handoff_deadline" ] || return 0
-  echo "::error::No run took the turn on behalf of this run within $handoff_minutes minutes. Runs with a read-only token, like pull requests from forks, need the workflow_run workflow described in the README of priority-boarding."
+  echo "::error::No run took the turn on behalf of this run within $handoff_minutes minutes. Runs with a read-only token, like pull requests from forks, need the workflow_run workflow described in the README of boarding-gate."
   exit 1
 }
 

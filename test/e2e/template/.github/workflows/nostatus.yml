@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  priority-boarding:
+  boarding-gate:
     if: vars.NOSTATUS == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -22,22 +22,22 @@ jobs:
       group: nostatus-wait-${{ github.head_ref }}
       cancel-in-progress: true
     steps:
-      - uses: udondan/priority-boarding@__ACTION_REF__ # zizmor: ignore[unpinned-uses] the ref under test
+      - uses: udondan/boarding-gate@__ACTION_REF__ # zizmor: ignore[unpinned-uses] the ref under test
         with:
           poll-interval-seconds: ${{ vars.POLL || '10' }}
           queued-poll-interval-seconds: ${{ vars.QUEUED_POLL || '30' }}
           timeout-minutes: 30
-          status-context: priority-boarding-nostatus
+          status-context: boarding-gate-nostatus
 
   deploy:
-    needs: priority-boarding
+    needs: boarding-gate
     if: ${{ !cancelled() && vars.NOSTATUS == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Check turn
-        if: needs.priority-boarding.result != 'success'
+        if: needs.boarding-gate.result != 'success'
         run: exit 1
 
       - uses: actions/checkout@v7

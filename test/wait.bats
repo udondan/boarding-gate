@@ -29,7 +29,7 @@ holder_succeeded() {
   run_wait
   assert_status 0
   assert_locks 1
-  [ "$(lock_message 1)" = "priority-boarding: run 100, pull request 1" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 100, pull request 1" ]
   [ "$(head -n 1 "$FAKE_STATE/statuses.log")" = "pending|Waiting for the turn." ]
   assert_last_commit_status "success|Took the turn."
   [ "$(count_calls '^sleep')" -eq 0 ]
@@ -131,7 +131,7 @@ holder_succeeded() {
   run_wait
   assert_status 0
   assert_output_contains "Could not take the turn"
-  [ "$(count_calls '^DELETE git/refs/priority-boarding/test.yml/1$')" -eq 1 ]
+  [ "$(count_calls '^DELETE git/refs/boarding-gate/test.yml/1$')" -eq 1 ]
   assert_locks 3
   assert_holds 3
 }
@@ -304,7 +304,7 @@ holder_succeeded() {
   add_run 100 "" 00:10
   run_wait
   assert_status 0
-  [ "$(lock_message 1)" = "priority-boarding: run 100" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 100" ]
 }
 
 @test "keeps the last known labels when listing the pull requests fails" {
@@ -745,7 +745,7 @@ EOF
   fail_api 403 '^POST statuses/'
   run_wait
   assert_status 0
-  assert_output_contains "::warning::Setting commit status priority-boarding failed"
+  assert_output_contains "::warning::Setting commit status boarding-gate failed"
   [ "$(count_calls '^POST statuses/')" -eq 1 ]
   assert_holds 1
 }
@@ -821,7 +821,7 @@ on_behalf_of_fork_run() {
   run_wait
   assert_status 0
   assert_output_contains "Waiting for the turn on behalf of run 300 of pull request #3."
-  [ "$(lock_message 1)" = "priority-boarding: run 300, pull request 3" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 300, pull request 3" ]
 }
 
 @test "a run from a fork fails when its pull request has a newer run of another commit" {
@@ -941,7 +941,7 @@ on_behalf_of_fork_run() {
   assert_status 0
   assert_output_contains "Waiting for the turn on behalf of run 300 of pull request #3."
   assert_locks 1
-  [ "$(lock_message 1)" = "priority-boarding: run 300, pull request 3" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 300, pull request 3" ]
   # The commit status of the fork run's commit, linked to the fork run.
   [ "$(count_calls '^POST statuses/head3 .*actions/runs/300$')" -eq 2 ]
   assert_last_commit_status "success|Took the turn."
@@ -1005,7 +1005,7 @@ on_behalf_of_fork_run() {
   add_run 300 "" 00:05
   run_wait
   assert_status 0
-  [ "$(lock_message 1)" = "priority-boarding: run 300" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 300" ]
 }
 
 @test "run-id reads a run of a workflow file with spaces in its name" {
@@ -1026,7 +1026,7 @@ on_behalf_of_fork_run() {
   set_pr 3 '.head.ref = "branch300" | .head.sha = "head300"'
   run_wait
   assert_status 0
-  [ "$(lock_message 1)" = "priority-boarding: run 300" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 300" ]
 }
 
 @test "run-id of a run that names its pull request" {
@@ -1036,7 +1036,7 @@ on_behalf_of_fork_run() {
   add_run 300 3 00:05
   run_wait
   assert_status 0
-  [ "$(lock_message 1)" = "priority-boarding: run 300, pull request 3" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 300, pull request 3" ]
 }
 
 @test "run-id of a fork branch with several open pull requests takes the turn without a pull request" {
@@ -1046,7 +1046,7 @@ on_behalf_of_fork_run() {
   run_wait
   assert_status 0
   assert_output_contains "Waiting for the turn on behalf of run 300."
-  [ "$(lock_message 1)" = "priority-boarding: run 300" ]
+  [ "$(lock_message 1)" = "boarding-gate: run 300" ]
 }
 
 @test "rejects an invalid run-id" {

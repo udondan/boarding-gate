@@ -1,4 +1,4 @@
-# A second required check, independent of priority-boarding. It fails when the
+# A second required check, independent of boarding-gate. It fails when the
 # pull request has a file named fail-extra: the pipeline run succeeds, but
 # auto-merge never merges, as when another required check fails.
 name: Extra

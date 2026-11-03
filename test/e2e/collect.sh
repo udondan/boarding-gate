@@ -8,7 +8,7 @@
 set -euo pipefail
 
 dir=$1
-repo="repos/${E2E_REPO:-udondan/priority-boarding-e2e}"
+repo="repos/${E2E_REPO:-udondan/boarding-gate-e2e}"
 start=$(cat "$dir/start")
 
 # Runs are listed newest first. Unfiltered, as wait.sh does: the created filter
@@ -23,7 +23,7 @@ for id in $(jq -r '.[].id' <<<"$runs"); do
   run_jobs=$(gh api --paginate "$repo/actions/runs/$id/jobs?filter=all&per_page=100" --jq '.jobs[] | {id, name, run_attempt, status, conclusion, created_at, started_at, completed_at,
     steps: [.steps[] | {name, conclusion, started_at, completed_at}]}' | jq -s .)
   jobs=$(jq --arg id "$id" --argjson j "$run_jobs" '. + {($id): $j}' <<<"$jobs")
-  for job in $(jq -r '.[] | select(.name | startswith("priority-boarding")) | .id' <<<"$run_jobs"); do
+  for job in $(jq -r '.[] | select(.name | startswith("boarding-gate")) | .id' <<<"$run_jobs"); do
     a=$(gh api --paginate "$repo/check-runs/$job/annotations" --jq '.[] | {level: .annotation_level, message}' | jq -s .)
     annotations=$(jq --arg id "$job" --argjson a "$a" '. + {($id): $a}' <<<"$annotations")
   done
@@ -31,7 +31,7 @@ done
 
 statuses='{}'
 for sha in $(jq -r '[.[].head_sha] | unique | .[]' <<<"$runs"); do
-  s=$(gh api --paginate "$repo/commits/$sha/statuses?per_page=100" --jq '.[] | select(.context | startswith("priority-boarding")) | {id, context, state, description, target_url, created_at}' | jq -s 'sort_by(.id)')
+  s=$(gh api --paginate "$repo/commits/$sha/statuses?per_page=100" --jq '.[] | select(.context | startswith("boarding-gate")) | {id, context, state, description, target_url, created_at}' | jq -s 'sort_by(.id)')
   statuses=$(jq --arg sha "$sha" --argjson s "$s" '. + {($sha): $s}' <<<"$statuses")
 done
 

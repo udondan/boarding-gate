@@ -1,21 +1,21 @@
-# priority-boarding
+# boarding-gate
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.webp">
-  <img alt="priority-boarding: Everyone waits. The gate decides who's next." src=".github/banner-light.webp">
+  <img alt="boarding-gate: Everyone waits. The gate decides who's next." src=".github/banner-light.webp">
 </picture>
 
-[![Release](https://img.shields.io/github/v/release/udondan/priority-boarding)](https://github.com/udondan/priority-boarding/releases/latest)
-[![Marketplace](https://img.shields.io/badge/marketplace-priority--boarding-blue?logo=github)](https://github.com/marketplace/actions/priority-boarding)
-[![Test](https://github.com/udondan/priority-boarding/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/udondan/priority-boarding/actions/workflows/test.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/udondan/priority-boarding/graph/badge.svg)](https://codecov.io/gh/udondan/priority-boarding)
-[![License](https://img.shields.io/github/license/udondan/priority-boarding)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/udondan/boarding-gate)](https://github.com/udondan/boarding-gate/releases/latest)
+[![Marketplace](https://img.shields.io/badge/marketplace-boarding--gate-blue?logo=github)](https://github.com/marketplace/actions/boarding-gate)
+[![Test](https://github.com/udondan/boarding-gate/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/udondan/boarding-gate/actions/workflows/test.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/udondan/boarding-gate/graph/badge.svg)](https://codecov.io/gh/udondan/boarding-gate)
+[![License](https://img.shields.io/github/license/udondan/boarding-gate)](LICENSE)
 
 GitHub Action that queues the runs of a workflow so only one run at a time uses shared resources (test stacks, environments), without cancelling pending runs the way a `concurrency` group does. Runs are ordered by the labels of their pull requests, so for example your own pull requests are tested before dependency updates, and release pull requests last. See [Alternatives](#alternatives) for when merge queue fits better.
 
 ## How it works
 
-The run that has the turn holds the lock ref `refs/priority-boarding/<workflow>/<n>`. The turn is released when that run completes, including all jobs after the wait, or, if its pull request is about to be auto-merged, after the merge (see [Outdated branches](#outdated-branches)). A failed or cancelled run releases it as well, so cancelling the run holding the turn frees it, also in the middle of a job after the wait. The next run takes the turn by creating ref `<n+1>`. Creating a ref fails if it already exists, so only one run can take the turn. Old lock refs are deleted.
+The run that has the turn holds the lock ref `refs/boarding-gate/<workflow>/<n>`. The turn is released when that run completes, including all jobs after the wait, or, if its pull request is about to be auto-merged, after the merge (see [Outdated branches](#outdated-branches)). A failed or cancelled run releases it as well, so cancelling the run holding the turn frees it, also in the middle of a job after the wait. The next run takes the turn by creating ref `<n+1>`. Creating a ref fails if it already exists, so only one run can take the turn. Old lock refs are deleted.
 
 Waiting runs are ordered by weight (highest first), then by start time. A re-run of the run holding the turn keeps it. A re-run of any other run queues by its new start time. A run of a pull request that has a newer run is left out of the queue: its commit is outdated, and it can stay active for a while after it stopped waiting, for example while other jobs finish after it failed as outdated. A waiting run fails as soon as its pull request has a newer run of another commit, so it never tests the outdated commit. To stop it right away instead of at its next check, add a `concurrency` group (see [Workflow setup](#workflow-setup)).
 
@@ -69,7 +69,7 @@ flowchart TD
 
 ```yaml
 jobs:
-  priority-boarding:
+  boarding-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -80,7 +80,7 @@ jobs:
       group: ${{ github.workflow }}-wait-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: udondan/priority-boarding@v1
+      - uses: udondan/boarding-gate@v1
         with:
           require-up-to-date: true
           label-weights: |
@@ -88,12 +88,12 @@ jobs:
             renovate=-5
 
   deploy:
-    needs: priority-boarding
+    needs: boarding-gate
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Check turn
-        if: needs.priority-boarding.result != 'success'
+        if: needs.boarding-gate.result != 'success'
         run: exit 1
       # ...
 ```
@@ -106,22 +106,22 @@ The wait job can also be called as a [reusable workflow](https://docs.github.com
 
 ```yaml
 jobs:
-  priority-boarding:
+  boarding-gate:
     permissions:
       actions: read
       contents: write
       pull-requests: read
       statuses: write
-    uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@v1
+    uses: udondan/boarding-gate/.github/workflows/boarding-gate.yml@v1
     secrets:
       update-token: ${{ secrets.UPDATE_TOKEN }}
 
   deploy:
-    needs: priority-boarding
+    needs: boarding-gate
     # ...
 ```
 
-It runs the action with a `concurrency` group that cancels outdated waiting runs (see [Workflow setup](#workflow-setup)) and queues on the calling workflow. The action comes from the same commit as the workflow file, so `@v1` follows every release of both. The calling job can still have its own `needs` and `if`, but no `runs-on` or `steps`. Its permissions are the most the called job gets, so grant them there. `statuses: write` is only needed for `status-context`. In the checks of a pull request, the job is shown as `priority-boarding / Priority boarding`.
+It runs the action with a `concurrency` group that cancels outdated waiting runs (see [Workflow setup](#workflow-setup)) and queues on the calling workflow. The action comes from the same commit as the workflow file, so `@v1` follows every release of both. The calling job can still have its own `needs` and `if`, but no `runs-on` or `steps`. Its permissions are the most the called job gets, so grant them there. `statuses: write` is only needed for `status-context`. In the checks of a pull request, the job is shown as `boarding-gate / Boarding gate`.
 
 The inputs are the [inputs](#inputs) of the action, with the secrets `update-token` and `token`. Some defaults differ from the action's, to match the setup this README recommends:
 
@@ -131,7 +131,7 @@ The inputs are the [inputs](#inputs) of the action, with the secrets `update-tok
 | `no-pull-request-weight` | `-100`                                                    |
 | `timeout-minutes`        | `180`                                                     |
 | `require-up-to-date`     | `true`                                                    |
-| `status-context`         | `priority-boarding`                                       |
+| `status-context`         | `boarding-gate`                                       |
 
 With these weights, label a pull request `urgent` to move its run to the front of the queue, also while it is waiting. Create the label in your repository first. Your own `label-weights` replace the defaults, so add `urgent=10` to them to keep it.
 
@@ -165,7 +165,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 
 ```yaml
   required:
-    needs: [priority-boarding, deploy]
+    needs: [boarding-gate, deploy]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -189,7 +189,7 @@ on:
     branches: [main]
 
 # ...
-      - uses: udondan/priority-boarding@v1
+      - uses: udondan/boarding-gate@v1
         with:
           label-weights: |
             autorelease: pending=-10
@@ -208,7 +208,7 @@ With branch protection requiring branches to be up to date, testing a branch tha
 Not every branch gets updated after a merge. release-please, for example, leaves its pull request alone when the merged commit doesn't change the changelog, so its runs would fail forever. With `update-token`, the action rebases a branch that is behind onto the base branch before failing, and the new commit starts a new run. Pushes made with `github.token` don't start workflow runs, so `update-token` has to be a personal access token or a GitHub App token with `contents: write` and `pull-requests: write`. Branches of forks are never updated.
 
 ```yaml
-      - uses: udondan/priority-boarding@v1
+      - uses: udondan/boarding-gate@v1
         with:
           require-up-to-date: true
           update-token: ${{ secrets.UPDATE_TOKEN }}
@@ -221,7 +221,7 @@ After a merge, the other pull requests are updated at different times. A release
 With `update-pending-branches: true` and `update-token`, the waiting run also rebases such a pull request when its tested branch is behind, and lets the new commit go first. This keeps the order by weight after a merge, without waiting for the branch to be updated by someone else. It costs a run per rebase, also for a pull request whose tests fail: it is tested again each time its base branch moves on. Branches of forks are never updated.
 
 ```yaml
-      - uses: udondan/priority-boarding@v1
+      - uses: udondan/boarding-gate@v1
         with:
           require-up-to-date: true
           update-pending-branches: true
@@ -238,7 +238,7 @@ The log shows the queue, but GitHub doesn't show the log of a composite action l
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/statuses-dark.webp">
-  <img alt="Examples of the priority-boarding commit status: took the turn, waiting in line behind a running pull request, waiting for a pull request to be merged, letting a pull request with a higher weight go first, the turn is free, branch behind, outdated commit" src=".github/statuses-light.webp" width="862">
+  <img alt="Examples of the boarding-gate commit status: took the turn, waiting in line behind a running pull request, waiting for a pull request to be merged, letting a pull request with a higher weight go first, the turn is free, branch behind, outdated commit" src=".github/statuses-light.webp" width="862">
 </picture>
 
 The token needs `statuses: write`. Without it, the action logs a warning and waits without the status. A run killed before it can clean up leaves the status pending.
@@ -250,9 +250,9 @@ The token needs `statuses: write`. Without it, the action logs a warning and wai
       pull-requests: read
       statuses: write
     steps:
-      - uses: udondan/priority-boarding@v1
+      - uses: udondan/boarding-gate@v1
         with:
-          status-context: priority-boarding
+          status-context: boarding-gate
 ```
 
 ## Alternatives
@@ -270,7 +270,7 @@ Runs of pull requests from forks get a read-only token and can't create the lock
 That other run is started by `workflow_run`, which runs the workflow of the default branch with a writable token, also for runs of forks. Add this workflow next to the one that waits, with the `name` of that workflow under `workflows`:
 
 ```yaml
-name: Priority boarding for forks
+name: Boarding gate for forks
 
 on:
   workflow_run: # zizmor: ignore[dangerous-triggers] no code of the pull request is run
@@ -280,14 +280,14 @@ on:
 permissions: {}
 
 jobs:
-  priority-boarding:
+  boarding-gate:
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name != github.repository
     permissions:
       actions: read
       contents: write
       pull-requests: read
       statuses: write
-    uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@v1
+    uses: udondan/boarding-gate/.github/workflows/boarding-gate.yml@v1
     with:
       run-id: ${{ format('{0}', github.event.workflow_run.id) }}
 ```

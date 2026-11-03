@@ -83,20 +83,20 @@ jobs:
   # Calls the reusable workflow of this commit as other repositories do, so a
   # broken change of it or of the action fails here before it is released.
   # Runs of pull requests from forks get a read-only token and wait for
-  # priority-boarding-forks.yml to take the turn on their behalf.
-  priority-boarding:
+  # boarding-gate-forks.yml to take the turn on their behalf.
+  boarding-gate:
     permissions:
       actions: read
-      contents: write # lock refs under refs/priority-boarding/
+      contents: write # lock refs under refs/boarding-gate/
       pull-requests: read # labels for label-weights
       statuses: write # queue position as commit status
-    uses: $/.github/workflows/priority-boarding.yml
+    uses: $/.github/workflows/boarding-gate.yml
     secrets:
       update-token: ${{ secrets.OVERRIDE_TOKEN }}
 
   # The only test check the ruleset requires, whatever jobs are added later.
   required:
-    needs: [shellcheck, test, actions, priority-boarding]
+    needs: [shellcheck, test, actions, boarding-gate]
     if: always()
     runs-on: ubuntu-latest
     steps:

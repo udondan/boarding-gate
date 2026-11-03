@@ -29,7 +29,7 @@ setup() {
   export INPUT_REQUIRE_UP_TO_DATE=false
   export INPUT_MERGE_WAIT=10
   export INPUT_YIELD_MINUTES=10
-  export INPUT_STATUS_CONTEXT=priority-boarding
+  export INPUT_STATUS_CONTEXT=boarding-gate
   export PR_NUMBER=1
   export BASE_REF=main
   export HEAD_SHA=head1
@@ -58,7 +58,7 @@ teardown() {
 # traced for bashcov.
 run_wait() {
   local trace=()
-  if [[ -n ${PRIORITY_BOARDING_COVERAGE:-} ]]; then
+  if [[ -n ${BOARDING_GATE_COVERAGE:-} ]]; then
     trace=(-x)
   fi
   run env BASH_ENV="$FAKE_LIB/fake-sleep.bash" bash ${trace[@]+"${trace[@]}"} "$BATS_TEST_DIRNAME/../wait.sh"
@@ -92,7 +92,7 @@ assert_locks() {
 assert_holds() {
   local message
   message=$(lock_message "$1")
-  [[ "$message" == "priority-boarding: run $GITHUB_RUN_ID"* ]] || {
+  [[ "$message" == "boarding-gate: run $GITHUB_RUN_ID"* ]] || {
     echo "expected lock $1 to be held by run $GITHUB_RUN_ID, its message is: $message"
     show_output
     return 1

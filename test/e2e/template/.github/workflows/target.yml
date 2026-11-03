@@ -11,14 +11,14 @@ on:
 permissions: {}
 
 jobs:
-  priority-boarding:
+  boarding-gate:
     if: vars.TARGET == 'true'
     permissions:
       actions: read
       contents: write
       pull-requests: read
       statuses: write
-    uses: udondan/priority-boarding/.github/workflows/priority-boarding.yml@__ACTION_REF__ # zizmor: ignore[unpinned-uses] the ref under test
+    uses: udondan/boarding-gate/.github/workflows/boarding-gate.yml@__ACTION_REF__ # zizmor: ignore[unpinned-uses] the ref under test
     with:
       label-weights: ${{ vars.LABEL_WEIGHTS }}
       no-pull-request-weight: ${{ fromJSON(vars.NO_PR_WEIGHT || '-100') }}
@@ -28,17 +28,17 @@ jobs:
       require-up-to-date: ${{ vars.REQUIRE_UP_TO_DATE != 'false' }}
       merge-wait-minutes: ${{ fromJSON(vars.MERGE_WAIT || '10') }}
       yield-to-pending-minutes: ${{ fromJSON(vars.YIELD || '10') }}
-      status-context: priority-boarding-target
+      status-context: boarding-gate-target
 
   deploy:
-    needs: priority-boarding
+    needs: boarding-gate
     if: ${{ !cancelled() && vars.TARGET == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Check turn
-        if: needs.priority-boarding.result != 'success'
+        if: needs.boarding-gate.result != 'success'
         run: exit 1
 
       # The base branch, never the code of the pull request.

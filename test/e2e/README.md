@@ -1,6 +1,6 @@
 # End-to-end tests
 
-The bats tests run `wait.sh` against a fake `gh` and a fake `sleep`. These tests run the action for real, in a throwaway public repository (`udondan/priority-boarding-e2e` by default, set `E2E_REPO` to use another one): real runs, lock refs, auto-merge, rebases with a token, concurrency cancellation and commit statuses.
+The bats tests run `wait.sh` against a fake `gh` and a fake `sleep`. These tests run the action for real, in a throwaway public repository (`udondan/boarding-gate-e2e` by default, set `E2E_REPO` to use another one): real runs, lock refs, auto-merge, rebases with a token, concurrency cancellation and commit statuses.
 
 They don't run on pull requests. A scenario takes 3 to 15 minutes, all of them about 1.5 hours. Run them locally (see [Running](#running)) or with the workflow [End-to-end tests](../../.github/workflows/e2e.yml) (see [In GitHub Actions](#in-github-actions)).
 
@@ -19,7 +19,7 @@ They don't run on pull requests. A scenario takes 3 to 15 minutes, all of them a
 `setup.sh` can't set the token for rebases. Create a fine-grained personal access token for the test repository only, with **Contents** and **Pull requests** read and write, and store it:
 
 ```sh
-gh secret set UPDATE_TOKEN -R udondan/priority-boarding-e2e
+gh secret set UPDATE_TOKEN -R udondan/boarding-gate-e2e
 ```
 
 Scenarios 06, 07, 09 and 10 need it.
@@ -46,8 +46,8 @@ test/e2e/run.sh 03 06                  # some of them
 The workflow `e2e.yml` runs `run.sh --ref <ref> [scenarios]`, started by hand: Actions → End-to-end tests → Run workflow, or
 
 ```sh
-gh workflow run e2e.yml -R udondan/priority-boarding -f ref=main               # all scenarios
-gh workflow run e2e.yml -R udondan/priority-boarding -f ref=main -f scenarios="03 06"
+gh workflow run e2e.yml -R udondan/boarding-gate -f ref=main               # all scenarios
+gh workflow run e2e.yml -R udondan/boarding-gate -f ref=main -f scenarios="03 06"
 ```
 
 The job summary shows the PASS/FAIL lines, the artifact `e2e-results` has the logs and reports. Only one run at a time, a second one waits.
@@ -55,13 +55,13 @@ The job summary shows the PASS/FAIL lines, the artifact `e2e-results` has the lo
 It needs the secret `E2E_TOKEN` in this repository: a fine-grained personal access token for the test repository only, with read and write for **Actions**, **Administration**, **Contents**, **Issues**, **Pull requests**, **Variables** and **Workflows**, and read for **Commit statuses** and **Secrets**. Keep it apart from `UPDATE_TOKEN`, so the action under test only gets the permissions users are told to give it.
 
 ```sh
-gh secret set E2E_TOKEN -R udondan/priority-boarding
+gh secret set E2E_TOKEN -R udondan/boarding-gate
 ```
 
 Scenario 15 also needs the secret `E2E_FORK_TOKEN`: a classic personal access token of a second account, with the scopes `public_repo` and `workflow`. The scenario forks the test repository with it, pushes branches to the fork and opens pull requests from it. A fine-grained token can't fork a repository of another account. Runs of the fork wait for approval as long as the account has no merged pull request, the scenario approves them with `E2E_TOKEN`. Locally, set `E2E_FORK_TOKEN` in the environment.
 
 ```sh
-gh secret set E2E_FORK_TOKEN -R udondan/priority-boarding
+gh secret set E2E_FORK_TOKEN -R udondan/boarding-gate
 ```
 
 Each scenario first resets the repository: it closes pull requests, cancels runs, deletes branches and lock refs and restores the default variables. Don't run two at the same time.
@@ -110,5 +110,5 @@ The repository can stay for the next release. To delete it:
 
 ```sh
 gh auth refresh -s delete_repo
-gh repo delete udondan/priority-boarding-e2e
+gh repo delete udondan/boarding-gate-e2e
 ```
