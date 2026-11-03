@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.13.0](https://github.com/udondan/boarding-gate/compare/v1.12.0...v1.13.0) (2026-11-03)
+
+
+### Features
+
+* give Dependabot pull requests a lower priority by default ([#63](https://github.com/udondan/boarding-gate/issues/63)) ([acd9dc5](https://github.com/udondan/boarding-gate/commit/acd9dc54f2f60a3746370d6acede4f567ec1ec98))
+
+
+### Bug Fixes
+
+* retry commit statuses after server errors instead of turning them off ([#62](https://github.com/udondan/boarding-gate/issues/62)) ([5686d20](https://github.com/udondan/boarding-gate/commit/5686d20453be99458fa5f6c604a83976bb618322))
+
+
+### Dependencies
+
+* **deps:** update jdx/mise-action action to v5.2.5 ([#59](https://github.com/udondan/boarding-gate/issues/59)) ([d6d462d](https://github.com/udondan/boarding-gate/commit/d6d462d7a3cac7aeb91a8ca1835523c6df915782))
+
 ## [1.12.0](https://github.com/udondan/boarding-gate/compare/v1.11.0...v1.12.0) (2026-11-03)
 
 
