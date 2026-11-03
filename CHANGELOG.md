@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/udondan/boarding-gate/compare/v1.11.0...v1.12.0) (2026-11-03)
+
+
+### Features
+
+* rename the action to boarding-gate ([#55](https://github.com/udondan/boarding-gate/issues/55)) ([e684fc3](https://github.com/udondan/boarding-gate/commit/e684fc3d07751ad7b2f7cdbf344da047a38b9e7e))
+
 ## [1.11.0](https://github.com/udondan/boarding-gate/compare/v1.10.1...v1.11.0) (2026-11-02)
 
 
