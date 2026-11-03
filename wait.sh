@@ -172,18 +172,29 @@ status_final=false
 fail_state=failure
 fail_description="Waiting for the turn failed, see the log."
 # Sets the commit status if it changed. Descriptions are limited to 140
-# characters. A failing request stops further updates but not the waiting.
+# characters. A failing request never stops the waiting. A client error (4xx)
+# stops further updates, any other error is tried once more and then again
+# with the next update.
 set_status() {
-  local state=$1 description=${2:0:140} out fields
+  local state=$1 description=${2:0:140} out fields attempt hint
   [ -n "$status_context" ] || return 0
   [ "$state $description" != "$last_status" ] || return 0
   fields=(-f state="$state" -f context="$status_context" -f description="$description" -f target_url="$status_url")
-  if ! out=$(gh api "$repo/statuses/$status_sha" "${fields[@]}" --silent 2>&1); then
-    echo "::warning::Setting commit status $status_context failed, no longer updating it. The token needs statuses: write permission. $out"
-    status_context=""
-    return 0
-  fi
-  last_status="$state $description"
+  for attempt in 1 2; do
+    if out=$(gh api "$repo/statuses/$status_sha" "${fields[@]}" --silent 2>&1); then
+      last_status="$state $description"
+      return 0
+    fi
+    if [[ $out =~ \(HTTP\ 4[0-9][0-9]\) && ! $out =~ \(HTTP\ 429\) ]]; then
+      hint=""
+      [[ ! $out =~ \(HTTP\ 40[34]\) ]] || hint=" The token needs statuses: write permission."
+      echo "::warning::Setting commit status $status_context failed, no longer updating it.$hint $out"
+      status_context=""
+      return 0
+    fi
+    [ "$attempt" -eq 2 ] || pause 1
+  done
+  echo "::warning::Setting commit status $status_context failed, trying again with the next update. $out"
 }
 on_exit() {
   local code=$?

@@ -241,7 +241,7 @@ The log shows the queue, but GitHub doesn't show the log of a composite action l
   <img alt="Examples of the boarding-gate commit status: took the turn, waiting in line behind a running pull request, waiting for a pull request to be merged, letting a pull request with a higher weight go first, the turn is free, branch behind, outdated commit" src=".github/statuses-light.webp" width="862">
 </picture>
 
-The token needs `statuses: write`. Without it, the action logs a warning and waits without the status. A run killed before it can clean up leaves the status pending.
+The token needs `statuses: write`. Without it, the action logs a warning and waits without the status. A server error is tried again once, and else with the next update of the status. A run killed before it can clean up leaves the status pending.
 
 ```yaml
     permissions:
