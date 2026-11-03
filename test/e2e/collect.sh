@@ -38,6 +38,16 @@ done
 prs=$(gh api "$repo/pulls?state=all&sort=updated&direction=desc&per_page=100" | jq --arg s "$start" '[.[] | select(.updated_at >= $s) | {number, title, state, merged_at, closed_at, head_ref: .head.ref, head_repo: .head.repo.full_name, head_sha: .head.sha, labels: [.labels[].name]}]')
 overlaps=$(gh api "$repo/git/matching-refs/e2e-resource/overlap-" --jq '[.[].ref]')
 
-jq -n --argjson runs "$runs" --argjson jobs "$jobs" --argjson annotations "$annotations" \
-  --argjson statuses "$statuses" --argjson prs "$prs" --argjson overlaps "$overlaps" \
-  '{runs: $runs, jobs: $jobs, annotations: $annotations, statuses: $statuses, prs: $prs, overlaps: $overlaps}' >"$dir/final.json"
+# Through files, not --argjson: with many runs the JSON is longer than the
+# argument list may be.
+parts=$(mktemp -d)
+trap 'rm -rf "$parts"' EXIT
+printf '%s' "$runs" >"$parts/runs.json"
+printf '%s' "$jobs" >"$parts/jobs.json"
+printf '%s' "$annotations" >"$parts/annotations.json"
+printf '%s' "$statuses" >"$parts/statuses.json"
+printf '%s' "$prs" >"$parts/prs.json"
+printf '%s' "$overlaps" >"$parts/overlaps.json"
+jq -n --slurpfile runs "$parts/runs.json" --slurpfile jobs "$parts/jobs.json" --slurpfile annotations "$parts/annotations.json" \
+  --slurpfile statuses "$parts/statuses.json" --slurpfile prs "$parts/prs.json" --slurpfile overlaps "$parts/overlaps.json" \
+  '{runs: $runs[0], jobs: $jobs[0], annotations: $annotations[0], statuses: $statuses[0], prs: $prs[0], overlaps: $overlaps[0]}' >"$dir/final.json"

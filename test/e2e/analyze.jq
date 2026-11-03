@@ -140,7 +140,10 @@ $final[0] as $final
 
 | [$report_runs[] | select(.workflow == "pipeline.yml") | . as $r
   | ({success: "success", failure: "failure", cancelled: "error"}[$r.wait_conclusion]) as $expected
-  | if ($r.statuses | length) == 0 then "run \($r.run) (#\($r.pr)): no status, wait job \($r.wait_conclusion)"
+  # A newer run in the same concurrency group can cancel the wait job while it
+  # is still pending: it has no steps, the action never ran and set no status.
+  | if ($r.statuses | length) == 0 and $r.wait_conclusion == "cancelled" and $r.wait_step == null then empty
+    elif ($r.statuses | length) == 0 then "run \($r.run) (#\($r.pr)): no status, wait job \($r.wait_conclusion)"
     elif $r.statuses[0].state != "pending" then "run \($r.run) (#\($r.pr)): first status \($r.statuses[0].state)"
     # The wait step can fail (outdated, rebased) just before the concurrency
     # group of the new commit cancels the run: the job ends cancelled, the
