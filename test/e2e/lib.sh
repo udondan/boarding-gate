@@ -248,9 +248,11 @@ is_holder() { [ "$(holder_pr)" = "$1" ]; }
 status_matches() { pr_status "$1" | grep -Eq "$2"; }
 no_active_runs() { [ "$(active_runs)" = 0 ]; }
 
-# runs_since_start: number of runs created since the scenario started.
+# runs_since_start: number of runs created since the scenario started, without
+# skipped ones. Workflows that skip every job (target.yml, forks.yml) can start
+# well before the pull_request runs, which GitHub sometimes sends a minute late.
 runs_since_start() {
-  gh api "$R/actions/runs?per_page=100" --jq "[.workflow_runs[] | select(.created_at >= \"$(cat "$RESULTS/start")\")] | length"
+  gh api "$R/actions/runs?per_page=100" --jq "[.workflow_runs[] | select(.created_at >= \"$(cat "$RESULTS/start")\" and .conclusion != \"skipped\")] | length"
 }
 
 # wait_settled <timeout seconds>: waits until runs were started since the

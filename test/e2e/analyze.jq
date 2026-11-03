@@ -36,7 +36,7 @@ $final[0] as $final
     end;
 
 [$final.runs[] | {
-  id, workflow: (.path | workflow_file), event, head_sha, conclusion, html_url,
+  id, workflow: (.path | workflow_file), event, head_sha, conclusion, html_url, run_attempt, run_started_at,
   pr: (if .event == "pull_request" or .event == "pull_request_target"
     then (.pr // $run_pr[.id | tostring] // $sha_pr[.head_sha] // $branch_pr["\(.head_repo):\(.head_branch)"]) else null end),
   jobs: ($final.jobs[.id | tostring] // [])
@@ -50,7 +50,10 @@ $final[0] as $final
   | select($w != null and $w.conclusion != "skipped")
   | {
       run: $r.id, attempt: $js[0].run_attempt, workflow: $r.workflow, pr: $r.pr, event: $r.event,
-      start: ($js | map(.created_at | ts) | min),
+      # The action orders by run_started_at, which the API only has for the
+      # latest attempt. The jobs can be created a few seconds after it.
+      start: (if $js[0].run_attempt == $r.run_attempt and $r.run_started_at != null
+        then $r.run_started_at | ts else $js | map(.created_at | ts) | min end),
       end: ($js | map(.completed_at | ts) | max),
       wait: {start: ($w.started_at | ts), end: ($w.completed_at | ts), conclusion: $w.conclusion, job: $w.id,
         step: ($w.steps // [] | map(select(.name == "Boarding gate")) | first | .conclusion)},
