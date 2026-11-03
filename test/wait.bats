@@ -746,8 +746,41 @@ EOF
   run_wait
   assert_status 0
   assert_output_contains "::warning::Setting commit status boarding-gate failed"
+  assert_output_contains "The token needs statuses: write permission."
   [ "$(count_calls '^POST statuses/')" -eq 1 ]
   assert_holds 1
+}
+
+@test "a commit status rejected as invalid stops the updates without the permission hint" {
+  fail_api 422 '^POST statuses/'
+  run_wait
+  assert_status 0
+  assert_output_contains "failed, no longer updating it. gh: Fake failure (HTTP 422)"
+  refute_output_contains "statuses: write"
+  [ "$(count_calls '^POST statuses/')" -eq 1 ]
+}
+
+@test "a commit status failing with a server error is tried again" {
+  holder_running
+  fail_api 503 '^POST statuses/'
+  # The pause before the second attempt is the first sleep.
+  at_tick 1 'rm "$FAKE_STATE/fail"'
+  stop_at_tick 2
+  run_wait
+  assert_status 99
+  refute_output_contains "::warning::Setting commit status"
+  # Twice the first status, then the place in line and the failure of the stopped run.
+  [ "$(count_calls '^POST statuses/')" -eq 4 ]
+  [ "$(head -1 "$FAKE_STATE/statuses.log")" = "pending|Waiting for the turn." ]
+}
+
+@test "a commit status failing twice keeps the updates for the next change" {
+  fail_api 429 '^POST statuses/'
+  at_tick 2 'rm "$FAKE_STATE/fail"'
+  run_wait
+  assert_status 0
+  assert_output_contains "failed, trying again with the next update. gh: Fake failure (HTTP 429)"
+  assert_last_commit_status "success|Took the turn."
 }
 
 @test "a signal while sleeping sets status error right away" {
