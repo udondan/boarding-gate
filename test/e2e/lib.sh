@@ -327,6 +327,9 @@ scenario_start() {
   date -u +%FT%TZ >"$RESULTS/start"
   "$E2E_DIR/observe.sh" "$RESULTS" &
   OBSERVER=$!
+  # A scenario that dies before scenario_finish would leave the observer
+  # polling until the whole run ends.
+  trap 'kill "$OBSERVER" 2>/dev/null || true' EXIT
   FAILURES=0
   log "scenario $SCENARIO, results in $RESULTS"
 }
