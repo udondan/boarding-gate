@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/udondan/boarding-gate/compare/v1.13.0...v1.13.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* keep letting a pull request go first while its new run is missing from the runs list ([#65](https://github.com/udondan/boarding-gate/issues/65)) ([3d4f0a7](https://github.com/udondan/boarding-gate/commit/3d4f0a7dc80a50350f7051ea55cd3f7a379c6cf3))
+
 ## [1.13.0](https://github.com/udondan/boarding-gate/compare/v1.12.0...v1.13.0) (2026-11-03)
 
 
