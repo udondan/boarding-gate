@@ -67,7 +67,8 @@ inputs:
     description: >-
       Before taking the turn, let open pull requests with auto-merge enabled and
       a higher weight go first while they are about to be tested: their head
-      commit has no run yet. Otherwise a pull request updated right after a
+      commit has no run yet, or a new one that isn't in the list of active runs
+      yet. Otherwise a pull request updated right after a
       merge takes the turn before the ones updated a few minutes later. Gives up
       after this many minutes. 0 disables this.
     required: false

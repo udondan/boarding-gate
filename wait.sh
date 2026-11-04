@@ -27,7 +27,8 @@
 # although the pull requests updated a few minutes later have a higher weight.
 # So before taking the turn, a run lets open pull requests with auto-merge
 # enabled and a higher weight go first while they are about to be tested: their
-# head commit has no run yet. A pull request whose head commit was tested and is
+# head commit has no completed run, and no run in the list of active runs, which
+# lags behind a few seconds. A pull request whose head commit was tested and is
 # behind gets no new run until its branch is updated. With
 # update-pending-branches, the run rebases it and lets the new commit go first.
 #
