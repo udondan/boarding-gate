@@ -138,7 +138,8 @@ case "$method $path" in
       respond "$(jq --arg sha "${BASH_REMATCH[1]}" 'map(select(.head_sha == $sha))
         | {total_count: length, workflow_runs: .}' "$FAKE_STATE/runs.json")"
     else
-      respond "$(jq '{total_count: length, workflow_runs: .}' "$FAKE_STATE/runs.json")"
+      # Runs marked unlisted aren't in the list yet, like new runs on GitHub.
+      respond "$(jq 'map(select(.unlisted | not)) | {total_count: length, workflow_runs: .}' "$FAKE_STATE/runs.json")"
     fi
     ;;
   "GET actions/runs/"*)

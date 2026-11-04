@@ -454,6 +454,19 @@ holder_succeeded() {
   assert_locks
 }
 
+@test "keeps letting a pull request go first while its new run is not in the runs list yet" {
+  export INPUT_LABEL_WEIGHTS="prio=5"
+  add_pr 3 prio true
+  at_tick 1 'add_run 300 3 00:20; set_run 300 ".unlisted = true"'
+  at_tick 2 'set_run 300 "del(.unlisted)"'
+  stop_at_tick 3
+  run_wait
+  assert_status 99
+  assert_output_contains "Position 2 of 2 (weight 0)"
+  [ "$(count_calls 'head_sha=head3')" -eq 2 ]
+  assert_locks
+}
+
 @test "stops letting a pull request go first after yield-to-pending-minutes" {
   export INPUT_LABEL_WEIGHTS="prio=5" INPUT_YIELD_MINUTES=1
   add_pr 3 prio true

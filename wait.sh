@@ -373,20 +373,25 @@ merge_pending() {
   return 1
 }
 
-# States of pull request head commits. "tested" when the commit has a run of
-# this workflow, so no new run is about to start for it. "updated" when this run
+# States of pull request head commits. "tested" when the commit has a completed
+# run of this workflow, so no new run is about to start for it. "updated" when this run
 # rebased the branch, the new commit starts a new run. With
 # update-pending-branches, tested commits are checked again after
 # queued_interval, as the base branch may have moved on.
 declare -A head_states=() head_checked=()
 # Sets the state of head commit $2 of pull request $1, with base branch $3 and
 # head repository $4. Without a state the commit has no run yet, or a request
-# failed: unknown counts as pending, the wait is limited anyway.
+# failed: unknown counts as pending, the wait is limited anyway. A newest run
+# that isn't completed leaves the state unknown too: the pull request has no
+# active run, so the run started after the runs list was read, which lags
+# behind by several seconds. It shows up there with the next poll.
+head_query='"\(.total_count) \(.workflow_runs[0].status // "")"'
 check_head() {
-  local number=$1 sha=$2 base=$3 head_repo=$4 count behind output
+  local number=$1 sha=$2 base=$3 head_repo=$4 runs count status behind output
   unset "head_states[$sha]"
-  count=$(gh api "$repo/actions/workflows/$workflow/runs?head_sha=$sha&per_page=1" --jq .total_count </dev/null) || return 0
-  [ "$count" -gt 0 ] || return 0
+  runs=$(gh api "$repo/actions/workflows/$workflow/runs?head_sha=$sha&per_page=1" --jq "$head_query" </dev/null) || return 0
+  read -r count status <<<"$runs"
+  [ "$count" -gt 0 ] && [ "$status" = "completed" ] || return 0
   head_states[$sha]=tested
   head_checked[$sha]=$SECONDS
   [ "$update_pending" = "true" ] && [ "$head_repo" = "$GITHUB_REPOSITORY" ] || return 0
@@ -407,7 +412,7 @@ head_unchecked() {
 }
 # Sets pending to the open pull requests with auto-merge enabled and a weight
 # higher than $1 that have no active run but are about to be tested: their head
-# commit has no run of this workflow yet, or this run rebased their branch.
+# commit has no completed run of this workflow, or this run rebased their branch.
 # Pull requests whose head commit was tested, successfully or not, are not
 # pending: nothing starts a new run for them.
 # shellcheck disable=SC2016 # jq variables
