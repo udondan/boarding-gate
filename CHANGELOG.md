@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.14.0](https://github.com/udondan/boarding-gate/compare/v1.13.1...v1.14.0) (2026-11-06)
+
+
+### Features
+
+* cancel the run instead of failing it after rebasing an outdated branch ([#71](https://github.com/udondan/boarding-gate/issues/71)) ([85b8fe8](https://github.com/udondan/boarding-gate/commit/85b8fe8a889ea743e68e1d643f21e82dc0282f99))
+
+
+### Dependencies
+
+* **deps:** update dependency zizmor to v1.32.0 ([#70](https://github.com/udondan/boarding-gate/issues/70)) ([f270de0](https://github.com/udondan/boarding-gate/commit/f270de047fc005ae72171723fcf7f095eb4d4985))
+* **deps:** update jdx/mise-action action to v5.2.6 ([#68](https://github.com/udondan/boarding-gate/issues/68)) ([a59dc5a](https://github.com/udondan/boarding-gate/commit/a59dc5a044c7e161423154b313a04f423ddbcd3a))
+
 ## [1.13.1](https://github.com/udondan/boarding-gate/compare/v1.13.0...v1.13.1) (2026-11-04)
 
 
