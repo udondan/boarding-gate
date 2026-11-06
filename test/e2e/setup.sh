@@ -78,6 +78,6 @@ configure "${DEFAULT_VARS[@]}" "LABEL_WEIGHTS=$DEFAULT_LABEL_WEIGHTS"
 
 if ! gh secret list -R "$E2E_REPO" --json name --jq '.[].name' | grep -qx UPDATE_TOKEN; then
   log "secret UPDATE_TOKEN is missing. Create a fine-grained token for $E2E_REPO only with"
-  log "Contents and Pull requests read and write, then run: gh secret set UPDATE_TOKEN -R $E2E_REPO"
+  log "Actions, Contents and Pull requests read and write, then run: gh secret set UPDATE_TOKEN -R $E2E_REPO"
 fi
 log "$E2E_REPO is ready: https://github.com/$E2E_REPO"

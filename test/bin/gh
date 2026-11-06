@@ -142,6 +142,11 @@ case "$method $path" in
       respond "$(jq 'map(select(.unlisted | not)) | {total_count: length, workflow_runs: .}' "$FAKE_STATE/runs.json")"
     fi
     ;;
+  "POST actions/runs/"*/cancel)
+    run=${path#actions/runs/}
+    log "CANCEL ${run%/cancel} token=${GH_TOKEN:-}"
+    respond '{}'
+    ;;
   "GET actions/runs/"*)
     run=$(jq --argjson id "${path#actions/runs/}" '.[] | select(.id == $id)' "$FAKE_STATE/runs.json")
     [ -n "$run" ] || http_error 404 "Not Found"

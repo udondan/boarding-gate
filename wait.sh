@@ -204,7 +204,8 @@ on_exit() {
   fi
 }
 trap on_exit EXIT
-trap 'fail_state=error; fail_description="Cancelled while waiting for the turn."; exit 130' INT TERM
+cancel_description="Cancelled while waiting for the turn."
+trap 'fail_state=error; fail_description=$cancel_description; exit 130' INT TERM
 
 # Sleeps in the background and waits for it. Bash runs the INT/TERM trap only
 # after a foreground command returns, and the runner kills the step a few
@@ -237,9 +238,14 @@ check_up_to_date() {
 }
 
 # Rebases the pull request branch onto the base branch with update-token, then
-# fails the run: its commit is outdated, the new commit starts a new run.
+# ends the run: its commit is outdated, the new commit starts a new run. The run
+# cancels itself instead of failing, so GitHub sends no "Run failed"
+# notification. Cancelling needs actions: write on update-token. Without it, the
+# concurrency group of the wait job cancels the run once the run of the new
+# commit starts. If neither cancels it within rebase_cancel_minutes, it fails.
 # Returns without doing anything when no update-token is set or the branch is
 # in a fork.
+rebase_cancel_minutes=5
 update_branch() {
   local behind=$1 output
   [ -n "${UPDATE_TOKEN:-}" ] || return 0
@@ -252,7 +258,16 @@ update_branch() {
     exit 1
   fi
   fail_description="Branch was behind $BASE_REF and was rebased. The new commit starts a new run."
+  cancel_description=$fail_description
   echo "::notice::Branch was $behind commit(s) behind $BASE_REF and was rebased. The new commit starts a new run."
+  if ! output=$(GH_TOKEN="$UPDATE_TOKEN" gh api -X POST "$repo/actions/runs/$GITHUB_RUN_ID/cancel" --silent 2>&1); then
+    echo "::warning::Cancelling this run failed, waiting for the concurrency group of the wait job to cancel it. update-token needs actions: write permission to cancel it. $output"
+  fi
+  local deadline=$((SECONDS + rebase_cancel_minutes * 60))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    pause "$interval"
+  done
+  echo "::error::This run wasn't cancelled within $rebase_cancel_minutes minutes, failing instead."
   exit 1
 }
 

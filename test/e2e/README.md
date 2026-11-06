@@ -16,7 +16,7 @@ They don't run on pull requests. A scenario takes 3 to 15 minutes, all of them a
 - A ruleset on main requires `required` and `extra-check` and up-to-date branches. Auto-merge is on, squash only.
 - The settings of the action come from repository variables (`POLL`, `QUEUED_POLL`, `TIMEOUT`, `MERGE_WAIT`, `YIELD`, `UPDATE_PENDING`, `USE_UPDATE_TOKEN`, `LABEL_WEIGHTS`, ...), so scenarios change them without a commit to main, which would make every open pull request behind. `lib.sh` has the defaults.
 
-`setup.sh` can't set the token for rebases. Create a fine-grained personal access token for the test repository only, with **Contents** and **Pull requests** read and write, and store it:
+`setup.sh` can't set the token for rebases. Create a fine-grained personal access token for the test repository only, with **Actions**, **Contents** and **Pull requests** read and write, and store it:
 
 ```sh
 gh secret set UPDATE_TOKEN -R udondan/boarding-gate-e2e

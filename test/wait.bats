@@ -646,14 +646,46 @@ holder_succeeded() {
   assert_locks 1
 }
 
-@test "update-token rebases a branch that is behind" {
+@test "update-token rebases a branch that is behind and cancels the run" {
   export INPUT_REQUIRE_UP_TO_DATE=true UPDATE_TOKEN=update
   set_behind head1 3
+  stop_at_tick 1
   run_wait
-  assert_status 1
+  assert_status 99
   assert_output_contains "::notice::Branch was 3 commit(s) behind main and was rebased."
   [ "$(count_calls '^PR update-branch 1 --rebase -R owner/repo token=update$')" -eq 1 ]
+  [ "$(count_calls '^CANCEL 100 token=update$')" -eq 1 ]
+  refute_output_contains "::warning::"
+  assert_locks
+}
+
+@test "a rebased run that isn't cancelled fails after 5 minutes" {
+  export INPUT_REQUIRE_UP_TO_DATE=true UPDATE_TOKEN=update
+  set_behind head1 3
+  fail_api 403 '^POST actions/runs/100/cancel$'
+  run_wait
+  assert_status 1
+  assert_output_contains "::warning::Cancelling this run failed"
+  assert_output_contains "::error::This run wasn't cancelled within 5 minutes, failing instead."
+  # 5 minutes of the default poll-interval of 30 seconds.
+  [ "$(count_calls '^sleep 30$')" -eq 10 ]
   assert_last_commit_status "failure|Branch was behind main and was rebased. The new commit starts a new run."
+  assert_locks
+}
+
+@test "a rebased run that is cancelled keeps the rebase in its commit status" {
+  export INPUT_REQUIRE_UP_TO_DATE=true UPDATE_TOKEN=update FAKE_REAL_SLEEP=1
+  set_behind head1 3
+  env BASH_ENV="$FAKE_LIB/fake-sleep.bash" bash "$BATS_TEST_DIRNAME/../wait.sh" >"$FAKE_STATE/out" 2>&1 3>&- &
+  local pid=$!
+  until [ -s "$FAKE_STATE/ticks/sleep_pid" ]; do command sleep 0.1; done
+  kill -TERM "$pid"
+  status=0
+  wait "$pid" || status=$?
+  output=$(cat "$FAKE_STATE/out")
+  kill "$(cat "$FAKE_STATE/ticks/sleep_pid")" 2>/dev/null || true
+  assert_status 130
+  assert_last_commit_status "error|Branch was behind main and was rebased. The new commit starts a new run."
 }
 
 @test "update-token doesn't touch branches of forks" {

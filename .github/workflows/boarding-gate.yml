@@ -80,7 +80,7 @@ on:
         default: ''
     secrets:
       update-token:
-        description: Token to rebase a pull request branch that is behind. Without it, such a run only fails.
+        description: Token to rebase a pull request branch that is behind, after which the run cancels itself (needs actions:write). Without it, such a run only fails.
         required: false
       token:
         description: Token for the GitHub API. Defaults to github.token of the calling job.

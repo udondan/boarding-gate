@@ -46,7 +46,9 @@ flowchart TD
     merge -- no --> free[Turn free]
     held --> uptodate{"Branch up to date? (require-up-to-date)"}
     free --> uptodate
-    uptodate -- no --> outdated(["Fail: branch is behind (rebased first with update-token)"])
+    uptodate -- no --> rebase{"update-token given and branch not in a fork?"}
+    rebase -- no --> outdated([Fail: branch is behind])
+    rebase -- yes --> rebased(["Rebase the branch, cancel this run (fail if not cancelled within 5 minutes)"])
     uptodate -- yes --> queue["Order waiting runs by label weight, then start time, leaving out runs of PRs with a newer run"]
     queue --> first{Turn free and this run first?}
     first -- yes --> yield{"Auto-merge PR with a higher weight about to be tested? (up to yield-to-pending-minutes)"}
@@ -207,7 +209,9 @@ The run holding the turn is never interrupted: a higher weight only affects whic
 
 With branch protection requiring branches to be up to date, testing a branch that is behind its base branch is wasted time: it has to be updated and tested again. With `require-up-to-date: true`, the action fails as soon as the branch is behind, while waiting and right before taking the turn. An outdated run stops right away and makes room for the run of the updated branch.
 
-Not every branch gets updated after a merge. release-please, for example, leaves its pull request alone when the merged commit doesn't change the changelog, so its runs would fail forever. With `update-token`, the action rebases a branch that is behind onto the base branch before failing, and the new commit starts a new run. Pushes made with `github.token` don't start workflow runs, so `update-token` has to be a personal access token or a GitHub App token with `contents: write` and `pull-requests: write`. Branches of forks are never updated.
+Not every branch gets updated after a merge. release-please, for example, leaves its pull request alone when the merged commit doesn't change the changelog, so its runs would fail forever. With `update-token`, the action rebases a branch that is behind onto the base branch, and the new commit starts a new run. Pushes made with `github.token` don't start workflow runs, so `update-token` has to be a personal access token or a GitHub App token with `contents: write` and `pull-requests: write`. Branches of forks are never updated.
+
+After the rebase, the run cancels itself instead of failing, so GitHub doesn't send a "Run failed" notification for it. Cancelling needs `actions: write` on `update-token`. Without it, the `concurrency` group of the wait job (see [Workflow setup](#workflow-setup)) cancels the run once the run of the new commit starts. If neither cancels it within 5 minutes, it fails.
 
 ```yaml
       - uses: udondan/boarding-gate@v1
