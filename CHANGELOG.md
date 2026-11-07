@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/udondan/boarding-gate/compare/v1.14.0...v1.14.1) (2026-11-07)
+
+
+### Dependencies
+
+* **deps:** update dependency bashcov to v4.0.2 ([#72](https://github.com/udondan/boarding-gate/issues/72)) ([84299f8](https://github.com/udondan/boarding-gate/commit/84299f86de2dacc2b11d2196fa0732ed7cd0f625))
+
 ## [1.14.0](https://github.com/udondan/boarding-gate/compare/v1.13.1...v1.14.0) (2026-11-06)
 
 
