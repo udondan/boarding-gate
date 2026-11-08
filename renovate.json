@@ -1,4 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>udondan/renovate-config"]
+  "extends": ["github>udondan/renovate-config"],
+  "packageRules": [
+    {
+      "description": "Repos call the reusable workflows, so the actions in them ship to users.",
+      "matchManagers": ["github-actions"],
+      "matchFileNames": [
+        ".github/workflows/boarding-gate.yml",
+        ".github/workflows/boarding-gate-forks.yml"
+      ],
+      "semanticCommitType": "build"
+    }
+  ]
 }
