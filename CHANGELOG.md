@@ -7,12 +7,6 @@
 
 * cancel the run instead of failing it after rebasing an outdated branch ([#71](https://github.com/udondan/boarding-gate/issues/71)) ([85b8fe8](https://github.com/udondan/boarding-gate/commit/85b8fe8a889ea743e68e1d643f21e82dc0282f99))
 
-
-### Dependencies
-
-* **deps:** update dependency zizmor to v1.32.0 ([#70](https://github.com/udondan/boarding-gate/issues/70)) ([f270de0](https://github.com/udondan/boarding-gate/commit/f270de047fc005ae72171723fcf7f095eb4d4985))
-* **deps:** update jdx/mise-action action to v5.2.6 ([#68](https://github.com/udondan/boarding-gate/issues/68)) ([a59dc5a](https://github.com/udondan/boarding-gate/commit/a59dc5a044c7e161423154b313a04f423ddbcd3a))
-
 ## [1.13.1](https://github.com/udondan/boarding-gate/compare/v1.13.0...v1.13.1) (2026-11-04)
 
 
@@ -31,11 +25,6 @@
 ### Bug Fixes
 
 * retry commit statuses after server errors instead of turning them off ([#62](https://github.com/udondan/boarding-gate/issues/62)) ([5686d20](https://github.com/udondan/boarding-gate/commit/5686d20453be99458fa5f6c604a83976bb618322))
-
-
-### Dependencies
-
-* **deps:** update jdx/mise-action action to v5.2.5 ([#59](https://github.com/udondan/boarding-gate/issues/59)) ([d6d462d](https://github.com/udondan/boarding-gate/commit/d6d462d7a3cac7aeb91a8ca1835523c6df915782))
 
 ## [1.12.0](https://github.com/udondan/boarding-gate/compare/v1.11.0...v1.12.0) (2026-11-03)
 
@@ -57,11 +46,6 @@
 * fail at once without contents: write and support Dependabot pull requests ([#46](https://github.com/udondan/boarding-gate/issues/46)) ([80168be](https://github.com/udondan/boarding-gate/commit/80168be50cfff37eb6b56ddc9b40886d93561844))
 * keep the commit status of a fork's run when workflow_run starts again for its later jobs ([#50](https://github.com/udondan/boarding-gate/issues/50)) ([8b57e0f](https://github.com/udondan/boarding-gate/commit/8b57e0fdb4c21813f11331b3a7e93fb7d3e4ff65))
 * support pull_request_target workflows ([#47](https://github.com/udondan/boarding-gate/issues/47)) ([9245cf0](https://github.com/udondan/boarding-gate/commit/9245cf0c3ba16c3c5f7517ffcbf72f92752293a7))
-
-
-### Dependencies
-
-* **deps:** update jdx/mise-action action to v5 ([#48](https://github.com/udondan/boarding-gate/issues/48)) ([7a25ab0](https://github.com/udondan/boarding-gate/commit/7a25ab08b93e0b115a1d0b5004e16197db0b76e8))
 
 ## [1.10.1](https://github.com/udondan/boarding-gate/compare/v1.10.0...v1.10.1) (2026-11-01)
 
