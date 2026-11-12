@@ -283,6 +283,37 @@ holder_succeeded() {
   assert_holds 1
 }
 
+@test "a run that hasn't started is not in the queue" {
+  add_pr 2
+  add_run 90 2 00:01 queued
+  add_pr 3
+  add_run 95 3 00:02 waiting
+  run_wait
+  assert_status 0
+  assert_holds 1
+}
+
+@test "a run that never started, of a closed pull request from a fork, doesn't block a push" {
+  export PR_NUMBER="" BASE_REF="" HEAD_SHA="" HEAD_REPO=""
+  echo '[]' >"$FAKE_STATE/runs.json"
+  # The pull request is closed, so the run can't be matched to it.
+  add_run 90 "" 00:01 queued
+  set_run 90 '.event = "pull_request" | .head_repository.full_name = "someone/repo"'
+  add_run 100 "" 00:10
+  run_wait
+  assert_status 0
+  assert_holds 1
+}
+
+@test "a newer run that hasn't started still leaves out the older run of its pull request" {
+  add_pr 2
+  add_run 90 2 00:01
+  add_run 95 2 00:02 queued
+  run_wait
+  assert_status 0
+  assert_holds 1
+}
+
 @test "runs without a pull request have the no-pull-request-weight" {
   export PR_NUMBER="" BASE_REF="" HEAD_SHA="" HEAD_REPO=""
   export INPUT_NO_PR_WEIGHT=-1
@@ -452,6 +483,29 @@ holder_succeeded() {
   assert_status 99
   assert_output_contains "Position 2 of 2 (weight 0)"
   assert_locks
+}
+
+@test "lets a pull request with a higher weight go first while its run hasn't started" {
+  export INPUT_LABEL_WEIGHTS="prio=5"
+  add_pr 3 prio true
+  add_run 300 3 00:20 queued
+  at_tick 1 'set_run 300 ".status = \"in_progress\""'
+  stop_at_tick 2
+  run_wait
+  assert_status 99
+  assert_output_contains "Letting pull requests with a higher weight go first, they are about to be tested: #3."
+  assert_output_contains "Position 2 of 2 (weight 0)"
+  assert_locks
+}
+
+@test "stops letting a pull request whose run never starts go first after yield-to-pending-minutes" {
+  export INPUT_LABEL_WEIGHTS="prio=5" INPUT_YIELD_MINUTES=1
+  add_pr 3 prio true
+  add_run 300 3 00:20 queued
+  run_wait
+  assert_status 0
+  assert_output_contains "Letting pull requests with a higher weight go first"
+  assert_holds 1
 }
 
 @test "keeps letting a pull request go first while its new run is not in the runs list yet" {

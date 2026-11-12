@@ -7,8 +7,11 @@
 # already exists, so only one run can take the turn.
 #
 # Waiting runs are ordered by the summed weight of their pull request labels
-# (highest first), then by start time. Runs without a pull request, for example
-# of a push to main, have the weight no-pull-request-weight. A run of a pull request that has a newer
+# (highest first), then by start time. Only runs that have started are in line:
+# a run takes the turn from its own job, so a run that is queued, waiting for
+# approval or never starts at all can't take it and must not block the others.
+# Runs without a pull request, for example of a push to main, have the weight
+# no-pull-request-weight. A run of a pull request that has a newer
 # run is left out, and fails if the newer run is of another commit. Only the
 # first waiting run takes the turn. It checks often, the others check less often
 # to save API requests, except while the turn is free: the first run may never
@@ -427,14 +430,17 @@ head_unchecked() {
   [ "${head_states[$1]}" = "tested" ] && [ "$update_pending" = "true" ] && [ "$SECONDS" -ge "$((head_checked[$1] + queued_interval))" ]
 }
 # Sets pending to the open pull requests with auto-merge enabled and a weight
-# higher than $1 that have no active run but are about to be tested: their head
+# higher than $1 that have no started run but are about to be tested: their head
 # commit has no completed run of this workflow, or this run rebased their branch.
+# A run that hasn't started yet, for example while it waits for a runner, isn't
+# in line, so its pull request is let go first like one whose run is about to
+# be created, for at most yield-to-pending-minutes.
 # Pull requests whose head commit was tested, successfully or not, are not
 # pending: nothing starts a new run for them.
 # shellcheck disable=SC2016 # jq variables
 pending_query='
   .[] | select(.auto_merge and (.number | tostring) != $self)
-  | select(.number as $n | all($runs[]; .pr != $n))
+  | select(.number as $n | all($runs[]; .pr != $n or .status != "in_progress"))
   | select(([.labels[] | $w[.] // 0] | add // 0) > $weight)
   | "\(.number) \(.sha) \(.base) \(.head_repo)"'
 pending_args=(--argjson w "$weights" --arg self "${PR_NUMBER:-}")
@@ -521,7 +527,7 @@ take_turn() {
 
 runs_url="$repo/actions/workflows/$workflow/runs?per_page=100"
 runs_query='[.workflow_runs[] | select(.status != "completed")
-  | {id, event, run_started_at, html_url, head_sha, pr: (.pull_requests[0].number // null),
+  | {id, status, event, run_started_at, html_url, head_sha, pr: (.pull_requests[0].number // null),
      head: "\(.head_repository.full_name // ""):\(.head_branch // "")"}]'
 prs_url="$repo/pulls?state=open&per_page=100"
 prs_query='.[] | {number, labels: [.labels[].name], auto_merge: (.auto_merge != null),
@@ -539,13 +545,17 @@ match_query='($prs | map(select(.head_repo != "")) | group_by(.head) | map(selec
 # outdated, and it may still be active although it will never take the turn,
 # for example while other jobs finish after it failed as outdated. This run
 # stays in the queue: check_newer_run fails it if the newer run is of another
-# commit, otherwise the newer run is a duplicate of the same commit.
+# commit, otherwise the newer run is a duplicate of the same commit. Runs that
+# haven't started are left out too, see above. The newest run of a pull request
+# is found among all runs, so a run whose newer run waits to start is still left
+# out.
 # shellcheck disable=SC2016 # jq variables
 queue_query='
   ($prs | map({key: (.number | tostring), value: ([.labels[] | $w[.] // 0] | add // 0)}) | from_entries) as $pw
   | ($runs | map(select(.pr != null)) | group_by(.pr)
     | map({key: (.[0].pr | tostring), value: (map(.id) | max)}) | from_entries) as $newest
   | $runs | map(select((.id | tostring) != $holder)
+    | select(.id == $self or .status == "in_progress")
     | select(.id == $self or .pr == null or $newest[.pr | tostring] == .id)
     | . + {weight: (if .pr == null then $nopr else ($pw[.pr | tostring] // 0) end)})
   | sort_by(-.weight, .run_started_at, .id)'
