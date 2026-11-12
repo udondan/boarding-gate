@@ -430,17 +430,19 @@ head_unchecked() {
   [ "${head_states[$1]}" = "tested" ] && [ "$update_pending" = "true" ] && [ "$SECONDS" -ge "$((head_checked[$1] + queued_interval))" ]
 }
 # Sets pending to the open pull requests with auto-merge enabled and a weight
-# higher than $1 that have no started run but are about to be tested: their head
+# higher than $1 that have no run in line but are about to be tested: their head
 # commit has no completed run of this workflow, or this run rebased their branch.
-# A run that hasn't started yet, for example while it waits for a runner, isn't
-# in line, so its pull request is let go first like one whose run is about to
-# be created, for at most yield-to-pending-minutes.
+# Only the newest active run of a pull request can be in line, and only once it
+# has started. A newest run that hasn't started yet, for example while it waits
+# for a runner, isn't in line, so its pull request is let go first like one
+# whose run is about to be created, for at most yield-to-pending-minutes. An
+# older run that is still in progress doesn't change that.
 # Pull requests whose head commit was tested, successfully or not, are not
 # pending: nothing starts a new run for them.
 # shellcheck disable=SC2016 # jq variables
 pending_query='
   .[] | select(.auto_merge and (.number | tostring) != $self)
-  | select(.number as $n | all($runs[]; .pr != $n or .status != "in_progress"))
+  | select(.number as $n | ([$runs[] | select(.pr == $n)] | max_by(.id) | .status) != "in_progress")
   | select(([.labels[] | $w[.] // 0] | add // 0) > $weight)
   | "\(.number) \(.sha) \(.base) \(.head_repo)"'
 pending_args=(--argjson w "$weights" --arg self "${PR_NUMBER:-}")
