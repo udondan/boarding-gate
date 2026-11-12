@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/udondan/boarding-gate/compare/v1.14.0...v1.14.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* leave runs that haven't started out of the queue ([#78](https://github.com/udondan/boarding-gate/issues/78)) ([99a69a2](https://github.com/udondan/boarding-gate/commit/99a69a26dfedb018139caf8b1bdf30bf3287a6a3))
+
 ## [1.14.0](https://github.com/udondan/boarding-gate/compare/v1.13.1...v1.14.0) (2026-11-06)
 
 
