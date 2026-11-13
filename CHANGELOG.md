@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/udondan/boarding-gate/compare/v1.14.1...v1.15.0) (2026-11-13)
+
+
+### Features
+
+* rebase pending pull requests by default in the reusable workflow ([#80](https://github.com/udondan/boarding-gate/issues/80)) ([a547bc6](https://github.com/udondan/boarding-gate/commit/a547bc6403913e577e7a5cdb376db7ce337f663c))
+
 ## [1.14.1](https://github.com/udondan/boarding-gate/compare/v1.14.0...v1.14.1) (2026-11-12)
 
 
