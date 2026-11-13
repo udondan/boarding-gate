@@ -128,13 +128,14 @@ It runs the action with a `concurrency` group that cancels outdated waiting runs
 
 The inputs are the [inputs](#inputs) of the action, with the secrets `update-token` and `token`. Some defaults differ from the action's, to match the setup this README recommends:
 
-| Name                     | Default of the workflow                                                      |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| `label-weights`          | `urgent=10`, `autorelease: pending=-10`, `renovate=-5` and `dependencies=-5` |
-| `no-pull-request-weight` | `-100`                                                                       |
-| `timeout-minutes`        | `180`                                                                        |
-| `require-up-to-date`     | `true`                                                                       |
-| `status-context`         | `boarding-gate`                                                              |
+| Name                      | Default of the workflow                                                      |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `label-weights`           | `urgent=10`, `autorelease: pending=-10`, `renovate=-5` and `dependencies=-5` |
+| `no-pull-request-weight`  | `-100`                                                                       |
+| `timeout-minutes`         | `180`                                                                        |
+| `require-up-to-date`      | `true`                                                                       |
+| `update-pending-branches` | `true`, warns without the secret `update-token`                              |
+| `status-context`          | `boarding-gate`                                                              |
 
 With these weights, label a pull request `urgent` to move its run to the front of the queue, also while it is waiting. Create the label in your repository first. Your own `label-weights` replace the defaults, so add `urgent=10` to them to keep it.
 
@@ -224,7 +225,7 @@ A successful run often gets its pull request merged by auto-merge, a few seconds
 
 After a merge, the other pull requests are updated at different times. A release pull request, for example, is updated right away, while Renovate updates its branches a few minutes later. The run of the release pull request would be the only waiting run and take the turn, although it has the lowest weight. So before taking the turn, a run lets open pull requests with auto-merge enabled and a higher weight go first while they are about to be tested: their head commit has no run of the workflow yet. A run that just started counts as about to be tested until it shows up in the list of active runs, which can take a few seconds, and so does a run that is queued and hasn't started yet, for example while it waits for a runner. Pull requests whose head commit was already tested, successfully or not, don't hold up the queue, even when their branch is behind: nothing starts a new run for them until the branch is updated. The wait ends after `yield-to-pending-minutes`, for example when a run never starts.
 
-With `update-pending-branches: true` and `update-token`, the waiting run also rebases such a pull request when its tested branch is behind, and lets the new commit go first. This keeps the order by weight after a merge, without waiting for the branch to be updated by someone else. It costs a run per rebase, also for a pull request whose tests fail: it is tested again each time its base branch moves on. Branches of forks are never updated.
+With `update-pending-branches: true` and `update-token`, the waiting run also rebases such a pull request when its tested branch is behind, and lets the new commit go first. The [reusable workflow](#reusable-workflow) turns it on by default. This keeps the order by weight after a merge, without waiting for the branch to be updated by someone else. It costs a run per rebase, also for a pull request whose tests fail: it is tested again each time its base branch moves on. Branches of forks are never updated.
 
 ```yaml
       - uses: udondan/boarding-gate@v1
@@ -297,9 +298,11 @@ jobs:
     uses: udondan/boarding-gate/.github/workflows/boarding-gate.yml@v1
     with:
       run-id: ${{ format('{0}', github.event.workflow_run.id) }}
+    secrets:
+      update-token: ${{ secrets.UPDATE_TOKEN }}
 ```
 
-It starts when the run of the fork starts, waits in that run's place in the queue, takes the turn for it and ends. It also ends when the run of the fork ends first, for example when it is cancelled, or when it tests an outdated commit of its pull request. GitHub sends `in_progress` again when later jobs of that run start: those runs find the turn already taken, or the run ended, and end without changing the commit status. It never checks out the code of the pull request, so the writable token is not exposed to it. Pass it the same inputs as the waiting job, like `label-weights` and `require-up-to-date`, so both see the same queue. The commit status of the fork's run is set by this run, since the fork's run can't set it.
+It starts when the run of the fork starts, waits in that run's place in the queue, takes the turn for it and ends. It also ends when the run of the fork ends first, for example when it is cancelled, or when it tests an outdated commit of its pull request. GitHub sends `in_progress` again when later jobs of that run start: those runs find the turn already taken, or the run ended, and end without changing the commit status. It never checks out the code of the pull request, so the writable token is not exposed to it. Pass it the same inputs as the waiting job, like `label-weights` and `require-up-to-date`, so both see the same queue, and `update-token` for `update-pending-branches`. The commit status of the fork's run is set by this run, since the fork's run can't set it.
 
 ```mermaid
 sequenceDiagram

@@ -110,10 +110,6 @@ require_up_to_date="${INPUT_REQUIRE_UP_TO_DATE:-false}"
 merge_wait="${INPUT_MERGE_WAIT:-10}"
 yield_minutes="${INPUT_YIELD_MINUTES:-10}"
 update_pending="${INPUT_UPDATE_PENDING:-false}"
-if [ "$update_pending" = "true" ] && [ -z "${UPDATE_TOKEN:-}" ]; then
-  echo "::warning::update-pending-branches needs update-token, not updating pending pull requests."
-  update_pending=false
-fi
 no_pr_weight="${INPUT_NO_PR_WEIGHT:-0}"
 if ! [[ "$no_pr_weight" =~ ^-?(0|[1-9][0-9]*)$ ]]; then
   echo "::error::Invalid no-pull-request-weight: $no_pr_weight. Expected an integer."
@@ -141,6 +137,12 @@ fi
 # A read-only run writes nothing, not even with update-token.
 if [ "$read_only" = "true" ]; then
   UPDATE_TOKEN=""
+  update_pending=false
+fi
+# Checked after read-only: runs of forks never get the token and ignore the
+# setting, they don't warn about it.
+if [ "$update_pending" = "true" ] && [ -z "${UPDATE_TOKEN:-}" ]; then
+  echo "::warning::update-pending-branches needs update-token, not updating pending pull requests."
   update_pending=false
 fi
 # Minutes a read-only run that is first in line waits for another run to take

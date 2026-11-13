@@ -1026,6 +1026,14 @@ on_behalf_of_fork_run() {
   [ "$(count_calls '^PR ')" -eq 0 ]
 }
 
+@test "read-only doesn't warn about update-pending-branches without update-token" {
+  export INPUT_READ_ONLY=true INPUT_UPDATE_PENDING=true
+  at_tick 2 'hold_lock 1 100 1'
+  run_wait
+  assert_status 0
+  refute_output_contains "update-pending-branches needs update-token"
+}
+
 @test "a run from a fork waits for another run to take the turn on its behalf" {
   this_run_is_fork
   at_tick 2 'hold_lock 1 100 1'

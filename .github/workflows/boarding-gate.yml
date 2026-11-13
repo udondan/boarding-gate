@@ -63,9 +63,9 @@ on:
         type: number
         default: 10
       update-pending-branches:
-        description: Also rebase pending auto-merge pull requests with a higher weight whose tested branch is behind, and let them go first. Needs the update-token secret.
+        description: Also rebase pending auto-merge pull requests with a higher weight whose tested branch is behind, and let them go first. Needs the update-token secret, without it the run warns.
         type: boolean
-        default: false
+        default: true
       status-context:
         description: Context of a commit status showing the place in the queue. Empty disables it.
         type: string

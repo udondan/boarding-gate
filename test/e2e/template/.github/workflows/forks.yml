@@ -31,4 +31,5 @@ jobs:
       require-up-to-date: ${{ vars.REQUIRE_UP_TO_DATE != 'false' }}
       merge-wait-minutes: ${{ fromJSON(vars.MERGE_WAIT || '10') }}
       yield-to-pending-minutes: ${{ fromJSON(vars.YIELD || '10') }}
+      update-pending-branches: ${{ vars.UPDATE_PENDING == 'true' }}
       status-context: boarding-gate
