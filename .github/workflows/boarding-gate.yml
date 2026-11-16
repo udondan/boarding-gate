@@ -4,6 +4,7 @@
 # cancels outdated waiting runs. Call it as a job:
 #
 #   boarding-gate:
+#     name: Queue # shown as "Queue / Boarding gate"
 #     permissions:
 #       actions: read
 #       contents: write

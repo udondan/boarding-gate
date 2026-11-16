@@ -110,6 +110,7 @@ The wait job can also be called as a [reusable workflow](https://docs.github.com
 ```yaml
 jobs:
   boarding-gate:
+    name: Queue
     permissions:
       actions: read
       contents: write
@@ -124,7 +125,7 @@ jobs:
     # ...
 ```
 
-It runs the action with a `concurrency` group that cancels outdated waiting runs (see [Workflow setup](#workflow-setup)) and queues on the calling workflow. The action comes from the same commit as the workflow file, so `@v1` follows every release of both. The calling job can still have its own `needs` and `if`, but no `runs-on` or `steps`. Its permissions are the most the called job gets, so grant them there. `statuses: write` is only needed for `status-context`. In the checks of a pull request, the job is shown as `boarding-gate / Boarding gate`.
+It runs the action with a `concurrency` group that cancels outdated waiting runs (see [Workflow setup](#workflow-setup)) and queues on the calling workflow. The action comes from the same commit as the workflow file, so `@v1` follows every release of both. The calling job can still have its own `needs` and `if`, but no `runs-on` or `steps`. Its permissions are the most the called job gets, so grant them there. `statuses: write` is only needed for `status-context`. In the checks of a pull request, GitHub shows the job as `<calling job> / Boarding gate`. Without a `name:` that is `boarding-gate / Boarding gate`, so the examples name the calling job `Queue`, which shows as `Queue / Boarding gate`.
 
 The inputs are the [inputs](#inputs) of the action, with the secrets `update-token` and `token`. Some defaults differ from the action's, to match the setup this README recommends:
 
@@ -289,6 +290,7 @@ permissions: {}
 
 jobs:
   boarding-gate:
+    name: Queue
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name != github.repository
     permissions:
       actions: read
