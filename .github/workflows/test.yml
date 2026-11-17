@@ -82,7 +82,7 @@ jobs:
           install_args: shellcheck
 
       - name: Lint wait.sh and tests
-        run: shellcheck -x wait.sh test/bin/gh test/lib/*.bash test/helpers.bash test/wait.bats test/coverage.sh test/e2e/*.sh test/e2e/scenarios/*.sh test/e2e/template/scripts/*.sh
+        run: shellcheck -x wait.sh test/bin/gh test/lib/*.bash test/helpers.bash test/wait.bats test/coverage.sh test/check-coverage.sh test/e2e/*.sh test/e2e/scenarios/*.sh test/e2e/template/scripts/*.sh
 
   test:
     needs: [boarding-gate, changes]
@@ -120,6 +120,11 @@ jobs:
           # Pull requests from forks get no OIDC token and upload without one.
           use_oidc: ${{ !github.event.pull_request.head.repo.fork }}
           fail_ci_if_error: false
+
+      # Codecov is no required check: it never reports on pull requests that
+      # skip this job. bashcov ignores SimpleCov's minimum_coverage.
+      - name: Check coverage is 100%
+        run: test/check-coverage.sh
 
   actions:
     needs: boarding-gate
