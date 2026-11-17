@@ -14,9 +14,65 @@ permissions:
   contents: read
 
 jobs:
+  # Calls the reusable workflow of this commit as other repositories do, so a
+  # broken change of it or of the action fails here before it is released.
+  # Runs of pull requests from forks get a read-only token and wait for
+  # boarding-gate-forks.yml to take the turn on their behalf.
+  boarding-gate:
+    name: Queue
+    permissions:
+      actions: read
+      contents: write # lock refs under refs/boarding-gate/
+      pull-requests: read # labels for label-weights
+      statuses: write # queue position as commit status
+    uses: $/.github/workflows/boarding-gate.yml
+    secrets:
+      update-token: ${{ secrets.OVERRIDE_TOKEN }}
+
+  # shellcheck and the tests only run if code or test config changed. Skipped
+  # outside of pull requests, so pushes to main always run them. Like every
+  # job, it waits for boarding-gate: while another run holds the turn, this one
+  # likely needs a rebase anyway.
+  changes:
+    needs: boarding-gate
+    # A skipped job counts as passed for required checks. Run the job even if
+    # boarding-gate failed and fail it in the first step.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists the PR's files via the API
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Check turn
+        if: needs.boarding-gate.result != 'success'
+        run: exit 1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            code:
+              - wait.sh
+              - action.yml
+              - test/**
+              - Gemfile
+              - Gemfile.lock
+              - mise.toml
+              - codecov.yml
+              - .simplecov
+              - .github/workflows/test.yml
+
   shellcheck:
+    needs: [boarding-gate, changes]
+    # Skip if no code changed. Otherwise fail instead of skip if boarding-gate
+    # failed, see the changes job.
+    if: ${{ !cancelled() && (needs.changes.result == 'skipped' || (needs.changes.result == 'success' && needs.changes.outputs.code == 'true')) }}
     runs-on: ubuntu-latest
     steps:
+      - name: Check turn
+        if: needs.boarding-gate.result != 'success'
+        run: exit 1
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -29,11 +85,18 @@ jobs:
         run: shellcheck -x wait.sh test/bin/gh test/lib/*.bash test/helpers.bash test/wait.bats test/coverage.sh test/e2e/*.sh test/e2e/scenarios/*.sh test/e2e/template/scripts/*.sh
 
   test:
+    needs: [boarding-gate, changes]
+    # Skip if no code changed. Otherwise fail instead of skip if boarding-gate
+    # failed, see the changes job.
+    if: ${{ !cancelled() && (needs.changes.result == 'skipped' || (needs.changes.result == 'success' && needs.changes.outputs.code == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # Codecov upload via OIDC
     steps:
+      - name: Check turn
+        if: needs.boarding-gate.result != 'success'
+        run: exit 1
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -59,8 +122,14 @@ jobs:
           fail_ci_if_error: false
 
   actions:
+    needs: boarding-gate
+    # Fail instead of skip if boarding-gate failed, see the changes job.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - name: Check turn
+        if: needs.boarding-gate.result != 'success'
+        run: exit 1
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -80,23 +149,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }} # zizmor checks the actions online
 
-  # Calls the reusable workflow of this commit as other repositories do, so a
-  # broken change of it or of the action fails here before it is released.
-  # Runs of pull requests from forks get a read-only token and wait for
-  # boarding-gate-forks.yml to take the turn on their behalf.
-  boarding-gate:
-    permissions:
-      actions: read
-      contents: write # lock refs under refs/boarding-gate/
-      pull-requests: read # labels for label-weights
-      statuses: write # queue position as commit status
-    uses: $/.github/workflows/boarding-gate.yml
-    secrets:
-      update-token: ${{ secrets.OVERRIDE_TOKEN }}
-
   # The only test check the ruleset requires, whatever jobs are added later.
   required:
-    needs: [shellcheck, test, actions, boarding-gate]
+    needs: [boarding-gate, changes, shellcheck, test, actions]
     if: always()
     runs-on: ubuntu-latest
     steps:

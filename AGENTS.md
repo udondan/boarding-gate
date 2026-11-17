@@ -16,6 +16,8 @@ Tool versions are pinned in `mise.toml` (bats, ruby, shellcheck, actionlint, ziz
 - Lint: `shellcheck -x wait.sh test/bin/gh test/lib/*.bash test/helpers.bash test/wait.bats test/coverage.sh test/e2e/*.sh test/e2e/scenarios/*.sh test/e2e/template/scripts/*.sh`
 - Workflow lint: `actionlint` (also shellchecks every `run:` block), `actionlint test/e2e/template/.github/workflows/*.yml` and `zizmor .`. actionlint doesn't know `$/` yet, `.github/actionlint.yaml` ignores those two errors.
 
+In `test.yml` every job waits for the `Queue` job (the reusable workflow of this commit) and fails if it failed, so nothing runs in parallel while another run holds the turn. On pull requests, `shellcheck` and `test` only run if the `changes` job (`dorny/paths-filter`) found a change in `wait.sh`, `action.yml`, `test/`, the Gemfiles, `mise.toml`, `codecov.yml`, `.simplecov` or `test.yml`; add new files the tests depend on to that filter. Workflow lint always runs.
+
 ## How wait.sh works
 
 - **Lock**: the turn is held by the run that created the newest ref `refs/boarding-gate/<workflow>/<n>`. Taking the turn = creating a commit (message `boarding-gate: run <id>[, pull request <n>]`) and ref `<n+1>`. Ref creation returns HTTP 422 if it exists, which is the mutual exclusion. After creating, it re-checks the newest ref (a stale run may recreate an old number) and deletes older refs. The holder's run id / PR are parsed back from the lock commit message (`read_holder`), so that format is a contract.
