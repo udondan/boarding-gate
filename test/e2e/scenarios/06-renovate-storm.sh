@@ -33,7 +33,7 @@ MAX_GAP=300 scenario_finish
 
 expect_merged "$@"
 expect_jq turns "every pull request took the turn once with its last commit" '[.turns[] | select(.workflow == "pipeline.yml")] | length == 6'
-expect_jq rebased "waiting runs rebased behind branches"'[.runs[].annotations[] | .message | test("was rebased\\. The new commit starts a new run\\.$")] | any'
+expect_jq rebased "waiting runs rebased behind branches" '[.runs[].annotations[] | .message | test("was rebased\\. The new commit starts a new run\\.$")] | any'
 expect_jq rebased-status "the status of a rebased commit says so" '[.runs[].statuses | last // empty | .state == "error" and(.description | test("^Branch was behind main and was rebased\\."))] | any'
 expect_jq merge-wait "a run waited for the holder to be merged" '[.runs[].statuses[].description | test("Waiting for #[0-9]+ to be merged\\.$")] | any'
 scenario_end
