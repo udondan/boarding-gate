@@ -35,6 +35,11 @@
 # behind gets no new run until its branch is updated. With
 # update-pending-branches, the run rebases it and lets the new commit go first.
 #
+# A pull request without auto-merge whose run passed before the base branch
+# moved on stays behind: its own run is over. With update-behind-branches, the
+# run of a push to the base branch rebases such pull requests before it waits,
+# so they are tested again against the new base.
+#
 # The status filter of the list-runs API (?status=in_progress) is backed by a
 # search index that can be stale and return no runs although runs are active.
 # The unfiltered list is correct, so active runs are filtered client-side.
@@ -110,6 +115,7 @@ require_up_to_date="${INPUT_REQUIRE_UP_TO_DATE:-false}"
 merge_wait="${INPUT_MERGE_WAIT:-10}"
 yield_minutes="${INPUT_YIELD_MINUTES:-10}"
 update_pending="${INPUT_UPDATE_PENDING:-false}"
+update_behind="${INPUT_UPDATE_BEHIND:-false}"
 no_pr_weight="${INPUT_NO_PR_WEIGHT:-0}"
 if ! [[ "$no_pr_weight" =~ ^-?(0|[1-9][0-9]*)$ ]]; then
   echo "::error::Invalid no-pull-request-weight: $no_pr_weight. Expected an integer."
@@ -139,11 +145,20 @@ if [ "$read_only" = "true" ]; then
   UPDATE_TOKEN=""
   update_pending=false
 fi
+# update-behind-branches only applies to runs of a push, to the branch the
+# pull requests are based on. Other runs ignore it without a warning.
+if [ "${GITHUB_EVENT_NAME:-}" != "push" ] || [ -z "${GITHUB_REF_NAME:-}" ]; then
+  update_behind=false
+fi
 # Checked after read-only: runs of forks never get the token and ignore the
 # setting, they don't warn about it.
 if [ "$update_pending" = "true" ] && [ -z "${UPDATE_TOKEN:-}" ]; then
   echo "::warning::update-pending-branches needs update-token, not updating pending pull requests."
   update_pending=false
+fi
+if [ "$update_behind" = "true" ] && [ -z "${UPDATE_TOKEN:-}" ]; then
+  echo "::warning::update-behind-branches needs update-token, not updating pull requests that are behind."
+  update_behind=false
 fi
 # Minutes a read-only run that is first in line waits for another run to take
 # the turn on its behalf, before it fails.
@@ -479,6 +494,41 @@ yielding() {
   return 0
 }
 
+# With update-behind-branches, a run of a push rebases the open pull requests
+# based on the pushed branch whose head commit passed its newest run of this
+# workflow and is now behind, so their new commit is tested against the new
+# base. Nothing else starts a run for them: their own run is over, and
+# update-pending-branches only rebases pull requests with auto-merge. Drafts
+# and branches of forks are left alone, and so are pull requests that weren't
+# tested yet or failed: their run is about to start, or they need a new commit
+# anyway. A rebase that fails, for example on a conflict or a token without
+# workflows permission for a branch that changes workflows, only warns.
+# shellcheck disable=SC2016 # jq variables
+behind_query='.[] | select(.base.ref == $base and (.draft | not) and .head.repo.full_name == $repo)
+  | "\(.number) \(.head.sha)"'
+behind_args=(--arg base "${GITHUB_REF_NAME:-}" --arg repo "$GITHUB_REPOSITORY")
+passed_query='.workflow_runs | max_by(.id) // {} | "\(.status) \(.conclusion)"'
+update_behind_branches() {
+  local base pulls number sha passed behind output
+  [ "$update_behind" = "true" ] || return 0
+  base=$GITHUB_REF_NAME
+  if ! pulls=$(gh api --paginate "$prs_url" | jq -s 'add // []'); then
+    echo "::warning::Listing pull requests failed, not updating pull requests that are behind $base."
+    return 0
+  fi
+  while read -r number sha; do
+    passed=$(gh api "$repo/actions/workflows/$workflow/runs?head_sha=$sha&per_page=1" --jq "$passed_query" </dev/null) || continue
+    [ "$passed" = "completed success" ] || continue
+    behind=$(gh api "$repo/compare/$base...$sha" --jq .behind_by </dev/null) || continue
+    [ "$behind" -gt 0 ] || continue
+    if ! output=$(GH_TOKEN="$UPDATE_TOKEN" gh pr update-branch "$number" --rebase -R "$GITHUB_REPOSITORY" </dev/null 2>&1); then
+      echo "::warning::Pull request #$number is $behind commit(s) behind $base and rebasing it failed: $output"
+      continue
+    fi
+    echo "::notice::Pull request #$number passed but was $behind commit(s) behind $base and was rebased. The new commit starts a new run."
+  done < <(echo "$pulls" | jq -r "${behind_args[@]}" "$behind_query")
+}
+
 tree=""
 # Tries to take the turn by creating lock ref n. Returns 1 if another run was
 # faster.
@@ -617,6 +667,8 @@ wait_for_handoff() {
 # workflow_run sends in_progress again when later jobs of a run start, after
 # a run with run-id took the turn for it. Such a run finds the turn already
 # taken, it only sets the first status once it has to wait.
+update_behind_branches
+
 waiting=false
 if [ -z "$run_id" ]; then
   set_status pending "Waiting for the turn."

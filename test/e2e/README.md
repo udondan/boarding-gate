@@ -14,7 +14,7 @@ They don't run on pull requests. A scenario takes 3 to 15 minutes, all of them a
 - `forks.yml` takes the turn on behalf of the runs of `pipeline.yml` from forks (`workflow_run`), like the workflow users add for forks. Runs of forks get a read-only token, so their deploy only holds the resource for `DEPLOY_SECONDS` without the ref: an overlap shows in the times of the steps.
 - `target.yml` is the pipeline on `pull_request_target`, with its own queue and resource. It only runs while the variable `TARGET` is `true`.
 - A ruleset on main requires `required` and `extra-check` and up-to-date branches. Auto-merge is on, squash only.
-- The settings of the action come from repository variables (`POLL`, `QUEUED_POLL`, `TIMEOUT`, `MERGE_WAIT`, `YIELD`, `UPDATE_PENDING`, `USE_UPDATE_TOKEN`, `LABEL_WEIGHTS`, ...), so scenarios change them without a commit to main, which would make every open pull request behind. `lib.sh` has the defaults.
+- The settings of the action come from repository variables (`POLL`, `QUEUED_POLL`, `TIMEOUT`, `MERGE_WAIT`, `YIELD`, `UPDATE_PENDING`, `UPDATE_BEHIND`, `USE_UPDATE_TOKEN`, `LABEL_WEIGHTS`, ...), so scenarios change them without a commit to main, which would make every open pull request behind. `lib.sh` has the defaults.
 
 `setup.sh` can't set the token for rebases. Create a fine-grained personal access token for the test repository only, with **Actions**, **Contents** and **Pull requests** read and write, and store it:
 
@@ -83,6 +83,7 @@ Each scenario first resets the repository: it closes pull requests, cancels runs
 | 13-reruns             | A re-run of the holder keeps the turn, a later re-run queues again.                                |
 | 14-no-status          | Without `statuses: write` the action warns and queues without the status.                          |
 | 15-forks              | A pull request from a fork goes first by its label: `forks.yml` takes the turn for its read-only run, on `pull_request_target` it takes the turn itself. |
+| 16-update-behind      | With `update-behind-branches`, the push run of main rebases a passed pull request without auto-merge that fell behind, and it is tested again. |
 
 ## Results
 

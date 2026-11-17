@@ -27,7 +27,10 @@ Each waiting run, and each `workflow_run` run with `run-id` that waits in the pl
 
 ```mermaid
 flowchart TD
-    start([Run starts]) --> runid{"run-id given? (workflow_run for a fork)"}
+    start([Run starts]) --> behind{"Run of a push with update-behind-branches?"}
+    behind -- yes --> sweep["Rebase open PRs into the pushed branch that passed and are behind"]
+    sweep --> runid
+    behind -- no --> runid{"run-id given? (workflow_run for a fork)"}
     runid -- no --> poll
     runid -- yes --> target[Read that run and its pull request]
     target --> targetold{"Run tests an outdated commit of its PR?"}
@@ -136,6 +139,7 @@ The inputs are the [inputs](#inputs) of the action, with the secrets `update-tok
 | `timeout-minutes`         | `180`                                                                        |
 | `require-up-to-date`      | `true`                                                                       |
 | `update-pending-branches` | `true`, warns without the secret `update-token`                              |
+| `update-behind-branches`  | `true`, in runs of a push warns without the secret `update-token`            |
 | `status-context`          | `boarding-gate`                                                              |
 
 With these weights, label a pull request `urgent` to move its run to the front of the queue, also while it is waiting. Create the label in your repository first. Your own `label-weights` replace the defaults, so add `urgent=10` to them to keep it.
@@ -156,6 +160,7 @@ Pass `label-weights: ''` or `status-context: ''` under `with:` to turn them off.
 | `merge-wait-minutes`           | `10`                        | Keep the turn held while the holder's PR is auto-merged (see below).        |
 | `yield-to-pending-minutes`     | `10`                        | Let pending auto-merge PRs with a higher weight go first (see below).       |
 | `update-pending-branches`      | `false`                     | Rebase pending auto-merge PRs with a higher weight that are behind (below). |
+| `update-behind-branches`       | `false`                     | On a push, rebase PRs into the pushed branch that passed and are behind.    |
 | `update-token`                 |                             | Token to rebase a PR branch that is behind (see below).                     |
 | `status-context`               |                             | Context of a commit status showing the place in the queue (see below).      |
 | `read-only`                    | `auto`                      | Wait for another run to take the turn for this run, `auto` for forks.       |
@@ -224,7 +229,7 @@ After the rebase, the run cancels itself instead of failing, so GitHub doesn't s
 
 A successful run often gets its pull request merged by auto-merge, a few seconds after the run completes. A run taking the turn in between would pass the check and then test a branch that is outdated right after the merge. So when the run holding the turn succeeded and its pull request has auto-merge enabled, the turn stays held until the pull request is merged or closed, auto-merge is disabled, the branch turns out to be behind or conflicting, or a new commit was pushed to it. A new commit is merged only after its own run, which may be waiting for this turn. After the merge, the waiting runs fail as outdated. A pull request blocked by a failed required check is never merged by auto-merge, so the turn is released right away. The wait ends after `merge-wait-minutes`, for example when a review is missing or the checks can't be read. Pull requests you merge by hand can't be predicted: a run can still take the turn right before such a merge.
 
-After a merge, the other pull requests are updated at different times. A release pull request, for example, is updated right away, while Renovate updates its branches a few minutes later. The run of the release pull request would be the only waiting run and take the turn, although it has the lowest weight. So before taking the turn, a run lets open pull requests with auto-merge enabled and a higher weight go first while they are about to be tested: their head commit has no run of the workflow yet. A run that just started counts as about to be tested until it shows up in the list of active runs, which can take a few seconds, and so does a run that is queued and hasn't started yet, for example while it waits for a runner. Pull requests whose head commit was already tested, successfully or not, don't hold up the queue, even when their branch is behind: nothing starts a new run for them until the branch is updated. The wait ends after `yield-to-pending-minutes`, for example when a run never starts.
+After a merge, the other pull requests are updated at different times. A release pull request, for example, is updated right away, while Renovate updates its branches a few minutes later. The run of the release pull request would be the only waiting run and take the turn, although it has the lowest weight. So before taking the turn, a run lets open pull requests with auto-merge enabled and a higher weight go first while they are about to be tested: their head commit has no run of the workflow yet. A run that just started counts as about to be tested until it shows up in the list of active runs, which can take a few seconds, and so does a run that is queued and hasn't started yet, for example while it waits for a runner. Pull requests whose head commit was already tested, successfully or not, don't hold up the queue, even when their branch is behind: nothing starts a new run for them until the branch is updated (see `update-pending-branches` and `update-behind-branches` below). The wait ends after `yield-to-pending-minutes`, for example when a run never starts.
 
 With `update-pending-branches: true` and `update-token`, the waiting run also rebases such a pull request when its tested branch is behind, and lets the new commit go first. The [reusable workflow](#reusable-workflow) turns it on by default. This keeps the order by weight after a merge, without waiting for the branch to be updated by someone else. It costs a run per rebase, also for a pull request whose tests fail: it is tested again each time its base branch moves on. Branches of forks are never updated.
 
@@ -233,6 +238,16 @@ With `update-pending-branches: true` and `update-token`, the waiting run also re
         with:
           require-up-to-date: true
           update-pending-branches: true
+          update-token: ${{ secrets.UPDATE_TOKEN }}
+```
+
+A pull request without auto-merge, for example one you merge by hand, whose run passed before its base branch moved on is never updated by the above: its own run is over, and nothing waits for it. It shows as behind until someone updates it. With `update-behind-branches: true` and `update-token`, the run of a push rebases, before it waits, the open pull requests into the pushed branch whose head commit passed its newest run of the workflow and is behind. Their new commits are tested against the new base and queue as usual. The [reusable workflow](#reusable-workflow) turns it on by default. It only applies to runs of a push, so the workflow has to run the wait job on pushes to the base branch as well (see [Priorities](#priorities)). Drafts, branches of forks, and pull requests that failed or weren't tested yet are left alone. A rebase that fails, for example on a conflict or because `update-token` lacks the `workflows` permission for a branch that changes workflows, only logs a warning. It costs a run per such pull request and push, and force-pushes their branches: mark a pull request as draft to keep it from being rebased while you work on it.
+
+```yaml
+      - uses: udondan/boarding-gate@v1
+        with:
+          require-up-to-date: true
+          update-behind-branches: true
           update-token: ${{ secrets.UPDATE_TOKEN }}
 ```
 

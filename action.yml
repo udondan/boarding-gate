@@ -84,6 +84,17 @@ inputs:
       run for them. Needs update-token. Branches of forks are never updated.
     required: false
     default: 'false'
+  update-behind-branches:
+    description: >-
+      In a run of a push, before waiting, rebase the branches of open pull
+      requests into the pushed branch whose head commit passed its newest run
+      of the workflow and is behind, so they are tested again against the new
+      base. Otherwise nothing starts a new run for them, for example for pull
+      requests merged by hand. Drafts are skipped, a rebase that fails, for
+      example on a conflict, only warns. Costs a run per such pull request and
+      push. Needs update-token. Branches of forks are never updated.
+    required: false
+    default: 'false'
   status-context:
     description: >-
       Context of a commit status that shows the run's place in the queue while
@@ -137,6 +148,7 @@ runs:
         INPUT_MERGE_WAIT: ${{ inputs.merge-wait-minutes }}
         INPUT_YIELD_MINUTES: ${{ inputs.yield-to-pending-minutes }}
         INPUT_UPDATE_PENDING: ${{ inputs.update-pending-branches }}
+        INPUT_UPDATE_BEHIND: ${{ inputs.update-behind-branches }}
         INPUT_STATUS_CONTEXT: ${{ inputs.status-context }}
         INPUT_READ_ONLY: ${{ inputs.read-only }}
         INPUT_RUN_ID: ${{ inputs.run-id }}

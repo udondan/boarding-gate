@@ -648,6 +648,139 @@ holder_succeeded() {
   assert_holds 1
 }
 
+# This run is the run of a push to main, with update-behind-branches.
+push_run() {
+  export PR_NUMBER="" BASE_REF="" HEAD_SHA="" HEAD_REPO=""
+  export GITHUB_EVENT_NAME=push GITHUB_REF_NAME=main
+  export INPUT_UPDATE_BEHIND=true UPDATE_TOKEN=update
+  echo '[]' >"$FAKE_STATE/runs.json"
+  add_run 100 "" 00:10
+}
+
+@test "update-behind-branches rebases a pull request that passed and is behind, then waits" {
+  push_run
+  add_pr 3
+  add_run 300 3 00:05 completed success
+  set_behind head3 2
+  run_wait
+  assert_status 0
+  assert_output_contains "::notice::Pull request #3 passed but was 2 commit(s) behind main and was rebased. The new commit starts a new run."
+  [ "$(count_calls '^PR update-branch 3 --rebase -R owner/repo token=update$')" -eq 1 ]
+  assert_holds 1
+}
+
+@test "update-behind-branches only rebases pull requests into the pushed branch whose newest run passed" {
+  push_run
+  # Up to date.
+  add_pr 4
+  add_run 400 4 00:01 completed success
+  # Newest run failed.
+  add_pr 5
+  add_run 500 5 00:01 completed success
+  add_run 501 5 00:02 completed failure head5
+  # Run not started yet, and no run at all.
+  add_pr 6
+  add_run 600 6 00:03 queued
+  add_pr 7
+  # Draft, fork and another base branch.
+  add_pr 8
+  set_pr 8 '.draft = true'
+  add_run 800 8 00:01 completed success
+  add_pr 9
+  set_pr 9 '.head.repo.full_name = "someone/repo"'
+  add_run 900 9 00:01 completed success
+  add_pr 10
+  set_pr 10 '.base.ref = "develop"'
+  add_run 1000 10 00:01 completed success
+  for sha in head5 head6 head7 head8 head9 head10; do
+    set_behind "$sha" 1
+  done
+  run_wait
+  assert_status 0
+  [ "$(count_calls '^GET compare/main...head4$')" -eq 1 ]
+  [ "$(count_calls '^GET compare/')" -eq 1 ]
+  [ "$(count_calls '^PR update-branch')" -eq 0 ]
+  assert_holds 1
+}
+
+@test "update-behind-branches warns when rebasing fails and goes on with the next pull request" {
+  push_run
+  add_pr 3
+  add_run 300 3 00:05 completed success
+  add_pr 4
+  add_run 400 4 00:05 completed success
+  set_behind head3 2
+  set_behind head4 1
+  fail_api 422 '^PR update-branch$'
+  run_wait
+  assert_status 0
+  assert_output_contains "::warning::Pull request #3 is 2 commit(s) behind main and rebasing it failed:"
+  assert_output_contains "::warning::Pull request #4 is 1 commit(s) behind main and rebasing it failed:"
+  assert_holds 1
+}
+
+@test "update-behind-branches skips a pull request whose runs or branch can't be read" {
+  push_run
+  add_pr 3
+  add_run 300 3 00:05 completed success
+  set_behind head3 2
+  fail_api 500 '^GET compare/'
+  add_pr 4
+  add_run 400 4 00:05 completed success
+  set_behind head4 2
+  fail_api 500 'head_sha=head4'
+  run_wait
+  assert_status 0
+  [ "$(count_calls '^PR update-branch')" -eq 0 ]
+  assert_holds 1
+}
+
+@test "update-behind-branches warns and waits when listing pull requests fails" {
+  push_run
+  fail_api 500 '^GET pulls'
+  run_wait
+  assert_status 0
+  assert_output_contains "::warning::Listing pull requests failed, not updating pull requests that are behind main."
+  assert_holds 1
+}
+
+@test "update-behind-branches is ignored in runs of pull requests" {
+  export INPUT_UPDATE_BEHIND=true
+  add_pr 3
+  add_run 300 3 00:05 completed success
+  set_behind head3 2
+  run_wait
+  assert_status 0
+  refute_output_contains "update-behind-branches"
+  [ "$(count_calls '^PR update-branch')" -eq 0 ]
+  assert_holds 1
+}
+
+@test "update-behind-branches is off by default" {
+  push_run
+  unset INPUT_UPDATE_BEHIND
+  add_pr 3
+  add_run 300 3 00:05 completed success
+  set_behind head3 2
+  run_wait
+  assert_status 0
+  [ "$(count_calls '^PR update-branch')" -eq 0 ]
+  assert_holds 1
+}
+
+@test "update-behind-branches is ignored without update-token" {
+  push_run
+  export UPDATE_TOKEN=""
+  add_pr 3
+  add_run 300 3 00:05 completed success
+  set_behind head3 2
+  run_wait
+  assert_status 0
+  assert_output_contains "::warning::update-behind-branches needs update-token, not updating pull requests that are behind."
+  [ "$(count_calls '^PR update-branch')" -eq 0 ]
+  assert_holds 1
+}
+
 @test "doesn't let pull requests with the same weight go first" {
   add_pr 3 "" true
   run_wait

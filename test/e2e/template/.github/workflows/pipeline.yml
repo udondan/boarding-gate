@@ -31,6 +31,7 @@ jobs:
       merge-wait-minutes: ${{ fromJSON(vars.MERGE_WAIT || '10') }}
       yield-to-pending-minutes: ${{ fromJSON(vars.YIELD || '10') }}
       update-pending-branches: ${{ vars.UPDATE_PENDING == 'true' }}
+      update-behind-branches: ${{ vars.UPDATE_BEHIND == 'true' }}
       status-context: boarding-gate
     secrets:
       update-token: ${{ vars.USE_UPDATE_TOKEN == 'true' && secrets.UPDATE_TOKEN || '' }}

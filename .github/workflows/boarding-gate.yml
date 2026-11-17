@@ -67,6 +67,10 @@ on:
         description: Also rebase pending auto-merge pull requests with a higher weight whose tested branch is behind, and let them go first. Needs the update-token secret, without it the run warns.
         type: boolean
         default: true
+      update-behind-branches:
+        description: In a run of a push, rebase open pull requests into the pushed branch that passed and are behind. Needs the update-token secret, without it the run warns.
+        type: boolean
+        default: true
       status-context:
         description: Context of a commit status showing the place in the queue. Empty disables it.
         type: string
@@ -118,6 +122,7 @@ jobs:
           merge-wait-minutes: ${{ inputs.merge-wait-minutes }}
           yield-to-pending-minutes: ${{ inputs.yield-to-pending-minutes }}
           update-pending-branches: ${{ inputs.update-pending-branches }}
+          update-behind-branches: ${{ inputs.update-behind-branches }}
           status-context: ${{ inputs.status-context }}
           read-only: ${{ inputs.read-only }}
           run-id: ${{ inputs.run-id }}
