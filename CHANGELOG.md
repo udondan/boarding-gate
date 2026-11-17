@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/udondan/boarding-gate/compare/v1.15.0...v1.16.0) (2026-11-17)
+
+
+### Features
+
+* rebase passed pull requests that fall behind on push to the base branch ([#87](https://github.com/udondan/boarding-gate/issues/87)) ([6466710](https://github.com/udondan/boarding-gate/commit/64667100020fb796a3cc8b5e56775cb4c9926b7e)), closes [#86](https://github.com/udondan/boarding-gate/issues/86)
+
 ## [1.15.0](https://github.com/udondan/boarding-gate/compare/v1.14.1...v1.15.0) (2026-11-13)
 
 
