@@ -6,4 +6,4 @@ bats = "1.14.0"
 ruby = "4.0.10"
 # The runner's own shellcheck is older and reports differently. actionlint runs it over every `run:` block.
 shellcheck = "0.11.0"
-zizmor = "1.33.0"
+zizmor = "1.33.1"
